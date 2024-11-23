@@ -37,6 +37,7 @@ android {
         versionCode 196
 
         buildConfigField "long", "BUILT", System.currentTimeMillis() + "L"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     compileOptions {
