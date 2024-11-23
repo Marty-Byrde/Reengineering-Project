@@ -63,7 +63,6 @@ task jacocoTestReport(type: JacocoReport, dependsOn: 'testDebugUnitTest') {
 
     reports {
         xml.enabled true
-        xml.destination file("${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml")
     }
 
     def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
@@ -80,7 +79,6 @@ sonarqube {
         property "sonar.coverage.exclusions", ""
         property "sonar.projectKey", "marty-byrde"
         property "sonar.java.coveragePlugin", "jacoco"
-        property "sonar.coverage.jacoco.xmlReportPaths", "${project.projectDir}/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
 
         property "sonar.issue.ignore.block", "e1"
         property "sonar.issue.ignore.block.e1.beginBlockRegexp", "\\s*//\\s*START-NOSCAN"
