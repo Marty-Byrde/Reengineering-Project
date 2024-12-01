@@ -57,6 +57,7 @@ import android.text.method.LinkMovementMethod;
 import android.text.style.BackgroundColorSpan;
 import android.text.style.ForegroundColorSpan;
 import android.util.Log;
+import android.util.Pair;
 import android.view.ActionMode;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -86,6 +87,7 @@ import android.support.v4.content.FileProvider;
 import com.ibm.icu.text.CharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
 
+import org.billthefarmer.editor.preferences.EditorPreferenceManager;
 import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -280,44 +282,8 @@ public class Editor extends Activity
 
         removeList = new ArrayList<>();
 
-        Configuration config = getResources().getConfiguration();
-        int night = config.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        ThemeHandler.setTheme(theme,this);
 
-        switch (theme)
-        {
-        case LIGHT:
-            setTheme(R.style.AppTheme);
-            break;
-
-        case DARK:
-            setTheme(R.style.AppDarkTheme);
-            break;
-
-        case SYSTEM:
-            switch (night)
-            {
-            case Configuration.UI_MODE_NIGHT_NO:
-                setTheme(R.style.AppTheme);
-                break;
-
-            case Configuration.UI_MODE_NIGHT_YES:
-                setTheme(R.style.AppDarkTheme);
-                break;
-            }
-            break;
-
-        case WHITE:
-            setTheme(R.style.AppWhiteTheme);
-            break;
-
-        case BLACK:
-            setTheme(R.style.AppBlackTheme);
-            break;
-
-        case RETRO:
-            setTheme(R.style.AppRetroTheme);
-            break;
-        }
 
         if (wrap)
             setContentView(R.layout.wrap);
