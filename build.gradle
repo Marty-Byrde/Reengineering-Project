@@ -117,6 +117,7 @@ dependencies {
 //    implementation 'androidx.activity:activity-compose:1.4.0'
 //    implementation platform('androidx.compose:compose-bom:2022.10.00')
 //    implementation 'androidx.compose.runtime:runtime-dispatch:1.0.0-alpha12'
+    implementation 'androidx.compose.runtime:runtime:1.0.1'
 
 
 
