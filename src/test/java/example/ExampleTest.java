@@ -2,12 +2,13 @@ package example;
 
 import static org.junit.Assert.*;
 
-import org.junit.jupiter.api.Test;
+import org.junit.Test;
 
-class ExampleTest {
+
+public class ExampleTest {
 
     @Test
-    void checkNickname() {
+    public void checkNickname() {
         assertTrue(true);
     }
 
