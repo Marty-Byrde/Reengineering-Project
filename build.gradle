@@ -107,49 +107,45 @@ sonarqube {
 }
 
 dependencies {
+    // Used by the Editor
     implementation 'org.commonmark:commonmark:0.22.0'
 
+    // Android Compose for Kotlin Compiler
+    implementation 'androidx.compose.runtime:runtime:1.7.5'
 
-    implementation 'org.junit.jupiter:junit-jupiter:5.11.1'
-    implementation 'androidx.core:core-ktx:1.3.0'
-    implementation 'androidx.test.ext:junit:1.1.1'
-//    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.1'
-//    implementation 'androidx.activity:activity-compose:1.4.0'
-//    implementation platform('androidx.compose:compose-bom:2022.10.00')
-//    implementation 'androidx.compose.runtime:runtime-dispatch:1.0.0-alpha12'
-    implementation 'androidx.compose.runtime:runtime:1.0.1'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.navigation:navigation-ui-ktx:2.7.4'
 
+    // Local Tests
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'androidx.arch.core:core-testing:2.2.0'
+    testImplementation 'io.mockk:mockk:1.13.8'
+    testImplementation "com.google.truth:truth:1.2.0"
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0-RC2'
 
+    // Instrumented Tests
+    // Kotlin Coroutines testing support (we added this in the last tutorial)
+    androidTestImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0-RC2'
 
-//    implementation 'androidx.compose.ui:ui'
-//    implementation 'androidx.compose.ui:ui-graphics'
-//    implementation 'androidx.compose.ui:ui-tooling-preview'
-//    implementation 'androidx.compose.material3:material3'
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.1'
-    testImplementation 'org.mockito:mockito-core:5.14.0'
-    testImplementation("org.junit.jupiter:junit-jupiter-params:5.11.1")
-    testImplementation 'junit:junit:4.12'
-//    androidTestImplementation platform('androidx.compose:compose-bom:2022.10.00')
-//    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
-//    debugImplementation 'androidx.compose.ui:ui-tooling'
-//    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+    // Since this needs to run on an Android device we must add this one to get the RunWith(AndroidJUnit4::class)
+    androidTestImplementation "androidx.test.ext:junit:1.1.5"
 
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.1'
+    // To test LiveData we also need Arch Core
+    androidTestImplementation "androidx.arch.core:core-testing:2.2.0"
 
-    testImplementation 'androidx.test.espresso:espresso-core:3.4.0'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+    // Assertion library for more readable assertions
+    androidTestImplementation "com.google.truth:truth:1.2.0"
 
-    testImplementation 'androidx.test:rules:1.5.0'
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    // Espresso Core - needed for AndroidJUnit4 runner
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
 
-
-    // Espresso dependencies
-    androidTestImplementation 'androidx.test.espresso:espresso-intents:3.4.0'
-
-    // AndroidX Test dependencies
-    androidTestImplementation 'androidx.test.ext:junit:1.1.1'
-    androidTestImplementation 'androidx.test:runner:1.4.0'
-    androidTestImplementation 'androidx.test:rules:1.4.0'
+    // Lifecycle
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-extensions:2.2.0"
 
 }
 
