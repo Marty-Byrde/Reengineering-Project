@@ -129,18 +129,6 @@ public class Editor extends Activity
     public final static String MODIFIED = "modified";
     public final static String MONOSPACE = "monospace";
 
-    public final static String PREF_FILE = "pref_file";
-    public final static String PREF_HIGH = "pref_high";
-    public final static String PREF_PATHS = "pref_paths";
-    public final static String PREF_SAVE = "pref_save";
-    public final static String PREF_LAST = "pref_last";
-    public final static String PREF_VIEW = "pref_view";
-    public final static String PREF_SIZE = "pref_size";
-    public final static String PREF_SUGGEST = "pref_suggest";
-    public final static String PREF_THEME = "pref_theme";
-    public final static String PREF_TYPE = "pref_type";
-    public final static String PREF_WRAP = "pref_wrap";
-
     public final static String DOCUMENTS = "Documents";
     public final static String FOLDER = "Folder";
     public final static String UTF_8 = "UTF-8";
@@ -1147,10 +1135,8 @@ public class Editor extends Activity
     // lastFile
     private void lastFile()
     {
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        String path = (String) editorPreferences.get(Preferences.File);
 
-        String path = preferences.getString(PREF_FILE, "");
         if (path.isEmpty())
         {
             defaultFile();

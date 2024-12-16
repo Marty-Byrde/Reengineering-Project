@@ -75,7 +75,7 @@ public class OpenFile extends Activity
         SharedPreferences preferences =
             PreferenceManager.getDefaultSharedPreferences(this);
 
-        int theme = preferences.getInt(Editor.PREF_THEME, EditorPreferenceParameters.LIGHT);
+        int theme = preferences.getInt(EditorPreferenceParameters.PREF_THEME, EditorPreferenceParameters.LIGHT);
 
         // Get day/night mode
         Configuration config = getResources().getConfiguration();
@@ -126,8 +126,8 @@ public class OpenFile extends Activity
         pathView = findViewById(R.id.path);
 
         // Get last path
-        boolean last = preferences.getBoolean(Editor.PREF_LAST, false);
-        String lastPath = preferences.getString(Editor.PREF_FILE, "");
+        boolean last = preferences.getBoolean(EditorPreferenceParameters.PREF_LAST, false);
+        String lastPath = preferences.getString(EditorPreferenceParameters.PREF_FILE, "");
 
         // Configure buttons
         Button cancel = findViewById(R.id.cancel);
