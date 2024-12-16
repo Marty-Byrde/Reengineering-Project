@@ -23,6 +23,7 @@
 
 package org.billthefarmer.editor;
 
+import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
 import static org.billthefarmer.editor.SyntaxPatternParameters.*;
 import android.Manifest;
 import android.app.Activity;
@@ -84,6 +85,8 @@ import android.widget.TextView;
 import com.ibm.icu.text.CharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
 
+import org.billthefarmer.editor.preferences.EditorPreferenceHandler;
+import org.billthefarmer.editor.preferences.Preferences;
 import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -246,30 +249,23 @@ public class Editor extends Activity
     {
         super.onCreate(savedInstanceState);
 
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        Map<Preferences, Object> preferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
-        List<String> typeList = Arrays.asList(typefaces);
-        int monospace = typeList.indexOf(MONOSPACE);
+        // Todo: Replace explicit variables with preferences class-variable that is used to access these preferences.
+        save = (boolean) preferences.get(Preferences.autoSaveFeature);
+        view = (boolean) preferences.get(Preferences.isReadOnly);
+        last = (boolean) preferences.get(Preferences.isLast);
+        wrap = (boolean) preferences.get(Preferences.isContentWrapped);
+        suggest = (boolean) preferences.get(Preferences.isSuggestEnabled);
+        highlight = (boolean) preferences.get(Preferences.isHighlightEnabled);
 
-        save = preferences.getBoolean(PREF_SAVE, false);
-        view = preferences.getBoolean(PREF_VIEW, true);
-        last = preferences.getBoolean(PREF_LAST, false);
-        wrap = preferences.getBoolean(PREF_WRAP, false);
-        suggest = preferences.getBoolean(PREF_SUGGEST, true);
-        highlight = preferences.getBoolean(PREF_HIGH, false);
-
-        theme = preferences.getInt(PREF_THEME, LIGHT);
-        size = preferences.getInt(PREF_SIZE, MEDIUM);
-        type = preferences.getInt(PREF_TYPE, monospace);
-
-        Set<String> pathSet = preferences.getStringSet(PREF_PATHS, null);
+        Set<String> pathSet = (Set<String>) preferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
         if (pathSet != null)
             for (String path : pathSet)
-                pathMap.put(path, preferences.getInt(path, 0));
+                pathMap.put(path, sharedPreferences.getInt(path, 0));
 
         removeList = new ArrayList<>();
 
