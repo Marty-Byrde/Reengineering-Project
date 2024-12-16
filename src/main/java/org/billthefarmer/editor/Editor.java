@@ -23,7 +23,10 @@
 
 package org.billthefarmer.editor;
 
+import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
 import static org.billthefarmer.editor.SyntaxPatternParameters.*;
+import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -84,6 +87,8 @@ import android.widget.TextView;
 import com.ibm.icu.text.CharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
 
+import org.billthefarmer.editor.preferences.EditorPreferenceHandler;
+import org.billthefarmer.editor.preferences.Preferences;
 import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -123,18 +128,6 @@ public class Editor extends Activity
     public final static String CONTENT = "content";
     public final static String MODIFIED = "modified";
     public final static String MONOSPACE = "monospace";
-
-    public final static String PREF_FILE = "pref_file";
-    public final static String PREF_HIGH = "pref_high";
-    public final static String PREF_PATHS = "pref_paths";
-    public final static String PREF_SAVE = "pref_save";
-    public final static String PREF_LAST = "pref_last";
-    public final static String PREF_VIEW = "pref_view";
-    public final static String PREF_SIZE = "pref_size";
-    public final static String PREF_SUGGEST = "pref_suggest";
-    public final static String PREF_THEME = "pref_theme";
-    public final static String PREF_TYPE = "pref_type";
-    public final static String PREF_WRAP = "pref_wrap";
 
     public final static String DOCUMENTS = "Documents";
     public final static String FOLDER = "Folder";
@@ -182,24 +175,6 @@ public class Editor extends Activity
     public final static int OPEN_DOCUMENT   = 1;
     public final static int CREATE_DOCUMENT = 2;
 
-    public final static int LIGHT  = 1;
-    public final static int DARK   = 2;
-    public final static int SYSTEM = 3;
-    public final static int WHITE  = 4;
-    public final static int BLACK  = 5;
-    public final static int RETRO  = 6;
-
-    private final static int TINY   = 8;
-    private final static int SMALL  = 12;
-    private final static int MEDIUM = 18;
-    private final static int LARGE  = 24;
-    private final static int HUGE  =  32;
-
-    private final static int NORMAL = 1;
-    private final static int MONO   = 2;
-    private final static int SANS   = 3;
-    private final static int SERIF  = 4;
-
 
     private Uri uri;
     private File file;
@@ -220,15 +195,9 @@ public class Editor extends Activity
     private Map<String, Integer> pathMap;
     private List<String> removeList;
 
-    private boolean highlight = false;
 
-    private boolean last = false;
-    private boolean save = false;
     private boolean edit = false;
-    private boolean view = false;
 
-    private boolean wrap = false;
-    private boolean suggest = true;
 
     private boolean changed = false;
 
@@ -240,43 +209,31 @@ public class Editor extends Activity
 
     private int syntax;
 
+    private Map<Preferences, Object> editorPreferences;
+
     // onCreate
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
 
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
-        List<String> typeList = Arrays.asList(typefaces);
-        int monospace = typeList.indexOf(MONOSPACE);
 
-        save = preferences.getBoolean(PREF_SAVE, false);
-        view = preferences.getBoolean(PREF_VIEW, true);
-        last = preferences.getBoolean(PREF_LAST, false);
-        wrap = preferences.getBoolean(PREF_WRAP, false);
-        suggest = preferences.getBoolean(PREF_SUGGEST, true);
-        highlight = preferences.getBoolean(PREF_HIGH, false);
-
-        theme = preferences.getInt(PREF_THEME, LIGHT);
-        size = preferences.getInt(PREF_SIZE, MEDIUM);
-        type = preferences.getInt(PREF_TYPE, monospace);
-
-        Set<String> pathSet = preferences.getStringSet(PREF_PATHS, null);
+        Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
         if (pathSet != null)
             for (String path : pathSet)
-                pathMap.put(path, preferences.getInt(path, 0));
+                pathMap.put(path, sharedPreferences.getInt(path, 0));
 
         removeList = new ArrayList<>();
 
         ThemeHandler.setTheme(theme,this);
 
 
-        if (wrap)
+        if ((boolean) editorPreferences.get(Preferences.isContentWrapped))
             setContentView(R.layout.wrap);
 
         else
@@ -301,7 +258,7 @@ public class Editor extends Activity
             textView.setTextIsSelectable(true);
         }
 
-        else if (!suggest)
+        else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE |
                                   InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -353,7 +310,7 @@ public class Editor extends Activity
         case Intent.ACTION_MAIN:
             if (savedInstanceState == null)
             {
-                if (last)
+                if ((boolean) editorPreferences.get(Preferences.isLast))
                     lastFile();
 
                 else
@@ -469,7 +426,7 @@ public class Editor extends Activity
                 textView.setSelection(offset);
 
                 // Set editable with or without suggestions
-                if (suggest)
+                if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
                     textView
                     .setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE);
@@ -569,16 +526,16 @@ public class Editor extends Activity
             PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = preferences.edit();
 
-        editor.putBoolean(PREF_SAVE, save);
-        editor.putBoolean(PREF_VIEW, view);
-        editor.putBoolean(PREF_LAST, last);
-        editor.putBoolean(PREF_WRAP, wrap);
-        editor.putBoolean(PREF_SUGGEST, suggest);
-        editor.putBoolean(PREF_HIGH, highlight);
+        editor.putBoolean(PREF_SAVE, (boolean) editorPreferences.get(Preferences.autoSaveFeature));
+        editor.putBoolean(PREF_VIEW, (boolean) editorPreferences.get(Preferences.isReadOnly));
+        editor.putBoolean(PREF_LAST, (boolean) editorPreferences.get(Preferences.isLast));
+        editor.putBoolean(PREF_WRAP, (boolean) editorPreferences.get(Preferences.isContentWrapped));
+        editor.putBoolean(PREF_SUGGEST, (boolean) editorPreferences.get(Preferences.isSuggestEnabled));
+        editor.putBoolean(PREF_HIGH, (boolean) editorPreferences.get(Preferences.isHighlightEnabled));
 
-        editor.putInt(PREF_THEME, theme);
-        editor.putInt(PREF_SIZE, size);
-        editor.putInt(PREF_TYPE, type);
+        editor.putInt(PREF_THEME, (int) editorPreferences.get(Preferences.Theme));
+        editor.putInt(PREF_SIZE, (int) editorPreferences.get(Preferences.FontSize));
+        editor.putInt(PREF_TYPE, (int) editorPreferences.get(Preferences.FontType));
 
         editor.putString(PREF_FILE, path);
 
@@ -596,7 +553,7 @@ public class Editor extends Activity
         editor.apply();
 
         // Save file
-        if (changed && save)
+        if (changed && (boolean) editorPreferences.get(Preferences.autoSaveFeature))
             saveFile();
     }
 
@@ -650,12 +607,12 @@ public class Editor extends Activity
         menu.findItem(R.id.view).setVisible(edit);
         menu.findItem(R.id.save).setVisible(changed);
 
-        menu.findItem(R.id.viewFile).setChecked(view);
-        menu.findItem(R.id.openLast).setChecked(last);
-        menu.findItem(R.id.autoSave).setChecked(save);
-        menu.findItem(R.id.wrap).setChecked(wrap);
-        menu.findItem(R.id.suggest).setChecked(suggest);
-        menu.findItem(R.id.highlight).setChecked(highlight);
+        menu.findItem(R.id.viewFile).setChecked((boolean) editorPreferences.get(Preferences.isReadOnly));
+        menu.findItem(R.id.openLast).setChecked((boolean) editorPreferences.get(Preferences.isLast));
+        menu.findItem(R.id.autoSave).setChecked((boolean) editorPreferences.get(Preferences.autoSaveFeature));
+        menu.findItem(R.id.wrap).setChecked((boolean) editorPreferences.get(Preferences.isContentWrapped));
+        menu.findItem(R.id.suggest).setChecked((boolean) editorPreferences.get(Preferences.isSuggestEnabled));
+        menu.findItem(R.id.highlight).setChecked((boolean) editorPreferences.get(Preferences.isHighlightEnabled));
 
         switch (theme)
         {
@@ -684,7 +641,7 @@ public class Editor extends Activity
             break;
         }
 
-        switch (size)
+        switch ((int) editorPreferences.get(Preferences.FontSize))
         {
         case SMALL:
             menu.findItem(R.id.small).setChecked(true);
@@ -1063,7 +1020,7 @@ public class Editor extends Activity
         textView.setSelection(offset);
 
         // Set editable with or without suggestions
-        if (suggest)
+        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         else
@@ -1178,10 +1135,8 @@ public class Editor extends Activity
     // lastFile
     private void lastFile()
     {
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        String path = (String) editorPreferences.get(Preferences.File);
 
-        String path = preferences.getString(PREF_FILE, "");
         if (path.isEmpty())
         {
             defaultFile();
@@ -1615,39 +1570,39 @@ public class Editor extends Activity
     // viewFileClicked
     private void viewFileClicked(MenuItem item)
     {
-        view = !view;
-        item.setChecked(view);
+        editorPreferences.put(Preferences.isReadOnly, !((boolean) editorPreferences.get(Preferences.isReadOnly)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isReadOnly)));
     }
 
     // openLastClicked
     private void openLastClicked(MenuItem item)
     {
-        last = !last;
-        item.setChecked(last);
+        editorPreferences.put(Preferences.isLast, !((boolean) editorPreferences.get(Preferences.isLast)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isLast)));
     }
 
     // autoSaveClicked
     private void autoSaveClicked(MenuItem item)
     {
-        save = !save;
-        item.setChecked(save);
+        editorPreferences.put(Preferences.autoSaveFeature, !((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
     }
 
     // wrapClicked
     private void wrapClicked(MenuItem item)
     {
-        wrap = !wrap;
-        item.setChecked(wrap);
+        editorPreferences.put(Preferences.isContentWrapped, !((boolean) editorPreferences.get(Preferences.isContentWrapped)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isContentWrapped)));
         recreate(this);
     }
 
     // suggestClicked
     private void suggestClicked(MenuItem item)
     {
-        suggest = !suggest;
-        item.setChecked(suggest);
+        editorPreferences.put(Preferences.isSuggestEnabled, !((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
 
-        if (suggest)
+        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setRawInputType(InputType.TYPE_CLASS_TEXT |
                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         else
@@ -1660,8 +1615,8 @@ public class Editor extends Activity
     // highlightClicked
     private void highlightClicked(MenuItem item)
     {
-        highlight = !highlight;
-        item.setChecked(highlight);
+        editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
         checkHighlight();
     }
@@ -2263,7 +2218,7 @@ public class Editor extends Activity
         syntax = NO_SYNTAX;
 
         // Check extension
-        if (highlight && file != null)
+        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) && file != null)
         {
             String ext = FileUtils.getExtension(file.getName());
             if (ext != null)
@@ -2895,36 +2850,36 @@ public class Editor extends Activity
 
                     if ("vw".equals(matcher.group(3)))
                     {
-                        if (view == no)
+                        if ((boolean) editorPreferences.get(Preferences.isReadOnly) == no)
                         {
-                            view = !no;
+                            editorPreferences.put(Preferences.isReadOnly, !no);
                             change = true;
                         }
                     }
 
                     else if ("ww".equals(matcher.group(3)))
                     {
-                        if (wrap == no)
+                        if ((boolean) editorPreferences.get(Preferences.isContentWrapped) == no)
                         {
-                            wrap = !no;
+                            editorPreferences.put(Preferences.isContentWrapped, !no);
                             change = true;
                         }
                     }
 
                     else if ("sg".equals(matcher.group(3)))
                     {
-                        if (suggest == no)
+                        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled) == no)
                         {
-                            suggest = !no;
+                            editorPreferences.put(Preferences.isSuggestEnabled, !no);
                             change = true;
                         }
                     }
 
                     else if ("hs".equals(matcher.group(3)))
                     {
-                        if (highlight == no)
+                        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
-                            highlight = !no;
+                            editorPreferences.put(Preferences.isHighlightEnabled, !no);
                             checkHighlight();
                         }
                     }
@@ -2990,7 +2945,7 @@ public class Editor extends Activity
                     {
                         if (":l".equals(matcher.group(4)))
                         {
-                            if (size != LARGE)
+                            if ((int) editorPreferences.get(Preferences.FontSize) != LARGE)
                             {
                                 size = LARGE;
                                 textView.setTextSize(size);
@@ -3087,7 +3042,7 @@ public class Editor extends Activity
         checkHighlight();
 
         // Set read only
-        if (view)
+        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
         {
             textView.setRawInputType(InputType.TYPE_NULL);
             textView.setTextIsSelectable(true);
@@ -3099,7 +3054,7 @@ public class Editor extends Activity
         else
         {
             // Set editable with or without suggestions
-            if (suggest)
+            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
                 textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                       InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             else

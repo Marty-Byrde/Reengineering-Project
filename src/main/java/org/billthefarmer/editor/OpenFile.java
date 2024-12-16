@@ -45,6 +45,8 @@ import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.billthefarmer.editor.preferences.EditorPreferenceParameters;
+
 import java.io.File;
 
 import java.util.ArrayList;
@@ -73,7 +75,7 @@ public class OpenFile extends Activity
         SharedPreferences preferences =
             PreferenceManager.getDefaultSharedPreferences(this);
 
-        int theme = preferences.getInt(Editor.PREF_THEME, Editor.LIGHT);
+        int theme = preferences.getInt(EditorPreferenceParameters.PREF_THEME, EditorPreferenceParameters.LIGHT);
 
         // Get day/night mode
         Configuration config = getResources().getConfiguration();
@@ -82,15 +84,15 @@ public class OpenFile extends Activity
         // Set theme
         switch (theme)
         {
-        case Editor.LIGHT:
+        case EditorPreferenceParameters.LIGHT:
             setTheme(R.style.DialogTheme);
             break;
 
-        case Editor.DARK:
+        case EditorPreferenceParameters.DARK:
             setTheme(R.style.DialogDarkTheme);
             break;
 
-        case Editor.SYSTEM:
+        case EditorPreferenceParameters.SYSTEM:
             switch (night)
             {
             case Configuration.UI_MODE_NIGHT_NO:
@@ -103,15 +105,15 @@ public class OpenFile extends Activity
             }
             break;
 
-        case Editor.WHITE:
+        case EditorPreferenceParameters.WHITE:
             setTheme(R.style.DialogWhiteTheme);
             break;
 
-        case Editor.BLACK:
+        case EditorPreferenceParameters.BLACK:
             setTheme(R.style.DialogBlackTheme);
             break;
 
-        case Editor.RETRO:
+        case EditorPreferenceParameters.RETRO:
             setTheme(R.style.DialogRetroTheme);
             break;
         }
@@ -124,8 +126,8 @@ public class OpenFile extends Activity
         pathView = findViewById(R.id.path);
 
         // Get last path
-        boolean last = preferences.getBoolean(Editor.PREF_LAST, false);
-        String lastPath = preferences.getString(Editor.PREF_FILE, "");
+        boolean last = preferences.getBoolean(EditorPreferenceParameters.PREF_LAST, false);
+        String lastPath = preferences.getString(EditorPreferenceParameters.PREF_FILE, "");
 
         // Configure buttons
         Button cancel = findViewById(R.id.cancel);
