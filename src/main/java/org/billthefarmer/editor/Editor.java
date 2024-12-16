@@ -223,12 +223,9 @@ public class Editor extends Activity
     private Map<String, Integer> pathMap;
     private List<String> removeList;
 
-    private boolean highlight = false;
 
     private boolean edit = false;
-    private boolean view = false;
 
-    private boolean suggest = true;
 
     private boolean changed = false;
 
@@ -251,10 +248,6 @@ public class Editor extends Activity
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
-        // Todo: Replace explicit variables with preferences class-variable that is used to access these preferences.
-        view = (boolean) editorPreferences.get(Preferences.isReadOnly);
-        suggest = (boolean) editorPreferences.get(Preferences.isSuggestEnabled);
-        highlight = (boolean) editorPreferences.get(Preferences.isHighlightEnabled);
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
@@ -293,7 +286,7 @@ public class Editor extends Activity
             textView.setTextIsSelectable(true);
         }
 
-        else if (!suggest)
+        else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE |
                                   InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
@@ -461,7 +454,7 @@ public class Editor extends Activity
                 textView.setSelection(offset);
 
                 // Set editable with or without suggestions
-                if (suggest)
+                if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
                     textView
                     .setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE);
@@ -1055,7 +1048,7 @@ public class Editor extends Activity
         textView.setSelection(offset);
 
         // Set editable with or without suggestions
-        if (suggest)
+        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                   InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         else
@@ -2255,7 +2248,7 @@ public class Editor extends Activity
         syntax = NO_SYNTAX;
 
         // Check extension
-        if (highlight && file != null)
+        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) && file != null)
         {
             String ext = FileUtils.getExtension(file.getName());
             if (ext != null)
@@ -2889,7 +2882,7 @@ public class Editor extends Activity
                     {
                         if ((boolean) editorPreferences.get(Preferences.isReadOnly) == no)
                         {
-                            view = !no;
+                            editorPreferences.put(Preferences.isReadOnly, !no);
                             change = true;
                         }
                     }
@@ -2907,7 +2900,7 @@ public class Editor extends Activity
                     {
                         if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled) == no)
                         {
-                            suggest = !no;
+                            editorPreferences.put(Preferences.isSuggestEnabled, !no);
                             change = true;
                         }
                     }
@@ -2916,7 +2909,7 @@ public class Editor extends Activity
                     {
                         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
-                            highlight = !no;
+                            editorPreferences.put(Preferences.isHighlightEnabled, !no);
                             checkHighlight();
                         }
                     }
@@ -3079,7 +3072,7 @@ public class Editor extends Activity
         checkHighlight();
 
         // Set read only
-        if (view)
+        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
         {
             textView.setRawInputType(InputType.TYPE_NULL);
             textView.setTextIsSelectable(true);
@@ -3091,7 +3084,7 @@ public class Editor extends Activity
         else
         {
             // Set editable with or without suggestions
-            if (suggest)
+            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
                 textView.setInputType(InputType.TYPE_CLASS_TEXT |
                                       InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             else
