@@ -25,6 +25,8 @@ package org.billthefarmer.editor;
 
 import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
 import static org.billthefarmer.editor.SyntaxPatternParameters.*;
+import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
+
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -184,24 +186,6 @@ public class Editor extends Activity
 
     public final static int OPEN_DOCUMENT   = 1;
     public final static int CREATE_DOCUMENT = 2;
-
-    public final static int LIGHT  = 1;
-    public final static int DARK   = 2;
-    public final static int SYSTEM = 3;
-    public final static int WHITE  = 4;
-    public final static int BLACK  = 5;
-    public final static int RETRO  = 6;
-
-    private final static int TINY   = 8;
-    private final static int SMALL  = 12;
-    private final static int MEDIUM = 18;
-    private final static int LARGE  = 24;
-    private final static int HUGE  =  32;
-
-    private final static int NORMAL = 1;
-    private final static int MONO   = 2;
-    private final static int SANS   = 3;
-    private final static int SERIF  = 4;
 
 
     private Uri uri;
