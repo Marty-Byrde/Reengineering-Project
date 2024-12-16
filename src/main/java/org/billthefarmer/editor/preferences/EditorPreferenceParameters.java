@@ -1,6 +1,6 @@
 package org.billthefarmer.editor.preferences;
 
-public class EditorPreferences {
+public class EditorPreferenceParameters {
     public final static String PREF_FILE = "pref_file";
     public final static String PREF_HIGH = "pref_high";
     public final static String PREF_PATHS = "pref_paths";
