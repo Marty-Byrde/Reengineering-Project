@@ -225,7 +225,6 @@ public class Editor extends Activity
 
     private boolean highlight = false;
 
-    private boolean last = false;
     private boolean edit = false;
     private boolean view = false;
 
@@ -349,7 +348,7 @@ public class Editor extends Activity
         case Intent.ACTION_MAIN:
             if (savedInstanceState == null)
             {
-                if (last)
+                if ((boolean) editorPreferences.get(Preferences.isLast))
                     lastFile();
 
                 else
@@ -1618,8 +1617,7 @@ public class Editor extends Activity
     // openLastClicked
     private void openLastClicked(MenuItem item)
     {
-        last = !last;
-        item.setChecked(last);
+        item.setChecked(!((boolean) editorPreferences.get(Preferences.isLast)));
     }
 
     // autoSaveClicked
