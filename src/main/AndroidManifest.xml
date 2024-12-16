@@ -5,9 +5,10 @@
     android:installLocation="auto"
     tools:ignore="GoogleAppIndexingWarning">
 
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"  android:maxSdkVersion="30"/>
 
   <application
+      android:requestLegacyExternalStorage="true"
       android:allowBackup="true"
       android:icon="@drawable/ic_launcher"
       android:label="@string/appName"
