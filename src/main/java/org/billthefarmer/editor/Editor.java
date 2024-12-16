@@ -226,7 +226,6 @@ public class Editor extends Activity
     private boolean highlight = false;
 
     private boolean last = false;
-    private boolean save = false;
     private boolean edit = false;
     private boolean view = false;
 
@@ -243,6 +242,8 @@ public class Editor extends Activity
 
     private int syntax;
 
+    private Map<Preferences, Object> editorPreferences;
+
     // onCreate
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -250,17 +251,16 @@ public class Editor extends Activity
         super.onCreate(savedInstanceState);
 
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        Map<Preferences, Object> preferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
+        editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
         // Todo: Replace explicit variables with preferences class-variable that is used to access these preferences.
-        save = (boolean) preferences.get(Preferences.autoSaveFeature);
-        view = (boolean) preferences.get(Preferences.isReadOnly);
-        last = (boolean) preferences.get(Preferences.isLast);
-        wrap = (boolean) preferences.get(Preferences.isContentWrapped);
-        suggest = (boolean) preferences.get(Preferences.isSuggestEnabled);
-        highlight = (boolean) preferences.get(Preferences.isHighlightEnabled);
+        view = (boolean) editorPreferences.get(Preferences.isReadOnly);
+        last = (boolean) editorPreferences.get(Preferences.isLast);
+        wrap = (boolean) editorPreferences.get(Preferences.isContentWrapped);
+        suggest = (boolean) editorPreferences.get(Preferences.isSuggestEnabled);
+        highlight = (boolean) editorPreferences.get(Preferences.isHighlightEnabled);
 
-        Set<String> pathSet = (Set<String>) preferences.get(Preferences.pathSet);
+        Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
         if (pathSet != null)
@@ -565,16 +565,16 @@ public class Editor extends Activity
             PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = preferences.edit();
 
-        editor.putBoolean(PREF_SAVE, save);
-        editor.putBoolean(PREF_VIEW, view);
-        editor.putBoolean(PREF_LAST, last);
-        editor.putBoolean(PREF_WRAP, wrap);
-        editor.putBoolean(PREF_SUGGEST, suggest);
-        editor.putBoolean(PREF_HIGH, highlight);
+        editor.putBoolean(PREF_SAVE, (boolean) editorPreferences.get(Preferences.autoSaveFeature));
+        editor.putBoolean(PREF_VIEW, (boolean) editorPreferences.get(Preferences.isReadOnly));
+        editor.putBoolean(PREF_LAST, (boolean) editorPreferences.get(Preferences.isLast));
+        editor.putBoolean(PREF_WRAP, (boolean) editorPreferences.get(Preferences.isContentWrapped));
+        editor.putBoolean(PREF_SUGGEST, (boolean) editorPreferences.get(Preferences.isSuggestEnabled));
+        editor.putBoolean(PREF_HIGH, (boolean) editorPreferences.get(Preferences.isHighlightEnabled));
 
-        editor.putInt(PREF_THEME, theme);
-        editor.putInt(PREF_SIZE, size);
-        editor.putInt(PREF_TYPE, type);
+        editor.putInt(PREF_THEME, (int) editorPreferences.get(Preferences.Theme));
+        editor.putInt(PREF_SIZE, (int) editorPreferences.get(Preferences.FontSize));
+        editor.putInt(PREF_TYPE, (int) editorPreferences.get(Preferences.FontType));
 
         editor.putString(PREF_FILE, path);
 
@@ -592,7 +592,7 @@ public class Editor extends Activity
         editor.apply();
 
         // Save file
-        if (changed && save)
+        if (changed && (boolean) editorPreferences.get(Preferences.autoSaveFeature))
             saveFile();
     }
 
@@ -646,12 +646,12 @@ public class Editor extends Activity
         menu.findItem(R.id.view).setVisible(edit);
         menu.findItem(R.id.save).setVisible(changed);
 
-        menu.findItem(R.id.viewFile).setChecked(view);
-        menu.findItem(R.id.openLast).setChecked(last);
-        menu.findItem(R.id.autoSave).setChecked(save);
-        menu.findItem(R.id.wrap).setChecked(wrap);
-        menu.findItem(R.id.suggest).setChecked(suggest);
-        menu.findItem(R.id.highlight).setChecked(highlight);
+        menu.findItem(R.id.viewFile).setChecked((boolean) editorPreferences.get(Preferences.isReadOnly));
+        menu.findItem(R.id.openLast).setChecked((boolean) editorPreferences.get(Preferences.isLast));
+        menu.findItem(R.id.autoSave).setChecked((boolean) editorPreferences.get(Preferences.autoSaveFeature));
+        menu.findItem(R.id.wrap).setChecked((boolean) editorPreferences.get(Preferences.isContentWrapped));
+        menu.findItem(R.id.suggest).setChecked((boolean) editorPreferences.get(Preferences.isSuggestEnabled));
+        menu.findItem(R.id.highlight).setChecked((boolean) editorPreferences.get(Preferences.isHighlightEnabled));
 
         switch (theme)
         {
@@ -680,7 +680,7 @@ public class Editor extends Activity
             break;
         }
 
-        switch (size)
+        switch ((int) editorPreferences.get(Preferences.FontSize))
         {
         case SMALL:
             menu.findItem(R.id.small).setChecked(true);
@@ -1625,8 +1625,7 @@ public class Editor extends Activity
     // autoSaveClicked
     private void autoSaveClicked(MenuItem item)
     {
-        save = !save;
-        item.setChecked(save);
+        item.setChecked(!((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
     }
 
     // wrapClicked
