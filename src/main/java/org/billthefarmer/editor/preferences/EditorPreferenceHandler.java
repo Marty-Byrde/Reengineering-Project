@@ -36,6 +36,8 @@ public class EditorPreferenceHandler {
         int size = sharedPreferences.getInt(PREF_SIZE, MEDIUM);
         int type = sharedPreferences.getInt(PREF_TYPE, monospace);
 
+        String file = sharedPreferences.getString(PREF_FILE, "");
+
         preferences.put(autoSaveFeature, isAutoSaveEnabled);
         preferences.put(isReadOnly, isFileReadOnly);
         preferences.put(isLast, last);
@@ -47,6 +49,8 @@ public class EditorPreferenceHandler {
         preferences.put(Theme, theme);
         preferences.put(FontSize, size);
         preferences.put(FontType, type);
+
+        preferences.put(File, file);
 
 
         return preferences;
