@@ -228,7 +228,6 @@ public class Editor extends Activity
     private boolean edit = false;
     private boolean view = false;
 
-    private boolean wrap = false;
     private boolean suggest = true;
 
     private boolean changed = false;
@@ -254,8 +253,6 @@ public class Editor extends Activity
 
         // Todo: Replace explicit variables with preferences class-variable that is used to access these preferences.
         view = (boolean) editorPreferences.get(Preferences.isReadOnly);
-        last = (boolean) editorPreferences.get(Preferences.isLast);
-        wrap = (boolean) editorPreferences.get(Preferences.isContentWrapped);
         suggest = (boolean) editorPreferences.get(Preferences.isSuggestEnabled);
         highlight = (boolean) editorPreferences.get(Preferences.isHighlightEnabled);
 
@@ -271,7 +268,7 @@ public class Editor extends Activity
         ThemeHandler.setTheme(theme,this);
 
 
-        if (wrap)
+        if ((boolean) editorPreferences.get(Preferences.isContentWrapped))
             setContentView(R.layout.wrap);
 
         else
@@ -1610,37 +1607,39 @@ public class Editor extends Activity
     // viewFileClicked
     private void viewFileClicked(MenuItem item)
     {
-        view = !view;
-        item.setChecked(view);
+        editorPreferences.put(Preferences.isReadOnly, !((boolean) editorPreferences.get(Preferences.isReadOnly)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isReadOnly)));
     }
 
     // openLastClicked
     private void openLastClicked(MenuItem item)
     {
-        item.setChecked(!((boolean) editorPreferences.get(Preferences.isLast)));
+        editorPreferences.put(Preferences.isLast, !((boolean) editorPreferences.get(Preferences.isLast)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isLast)));
     }
 
     // autoSaveClicked
     private void autoSaveClicked(MenuItem item)
     {
-        item.setChecked(!((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
+        editorPreferences.put(Preferences.autoSaveFeature, !((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
     }
 
     // wrapClicked
     private void wrapClicked(MenuItem item)
     {
-        wrap = !wrap;
-        item.setChecked(wrap);
+        editorPreferences.put(Preferences.isContentWrapped, !((boolean) editorPreferences.get(Preferences.isContentWrapped)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isContentWrapped)));
         recreate(this);
     }
 
     // suggestClicked
     private void suggestClicked(MenuItem item)
     {
-        suggest = !suggest;
-        item.setChecked(suggest);
+        editorPreferences.put(Preferences.isSuggestEnabled, !((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
 
-        if (suggest)
+        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
             textView.setRawInputType(InputType.TYPE_CLASS_TEXT |
                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         else
@@ -1653,8 +1652,8 @@ public class Editor extends Activity
     // highlightClicked
     private void highlightClicked(MenuItem item)
     {
-        highlight = !highlight;
-        item.setChecked(highlight);
+        editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
+        item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
         checkHighlight();
     }
@@ -2888,7 +2887,7 @@ public class Editor extends Activity
 
                     if ("vw".equals(matcher.group(3)))
                     {
-                        if (view == no)
+                        if ((boolean) editorPreferences.get(Preferences.isReadOnly) == no)
                         {
                             view = !no;
                             change = true;
@@ -2897,16 +2896,16 @@ public class Editor extends Activity
 
                     else if ("ww".equals(matcher.group(3)))
                     {
-                        if (wrap == no)
+                        if ((boolean) editorPreferences.get(Preferences.isContentWrapped) == no)
                         {
-                            wrap = !no;
+                            editorPreferences.put(Preferences.isContentWrapped, !no);
                             change = true;
                         }
                     }
 
                     else if ("sg".equals(matcher.group(3)))
                     {
-                        if (suggest == no)
+                        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled) == no)
                         {
                             suggest = !no;
                             change = true;
@@ -2915,7 +2914,7 @@ public class Editor extends Activity
 
                     else if ("hs".equals(matcher.group(3)))
                     {
-                        if (highlight == no)
+                        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
                             highlight = !no;
                             checkHighlight();
@@ -2983,7 +2982,7 @@ public class Editor extends Activity
                     {
                         if (":l".equals(matcher.group(4)))
                         {
-                            if (size != LARGE)
+                            if ((int) editorPreferences.get(Preferences.FontSize) != LARGE)
                             {
                                 size = LARGE;
                                 textView.setTextSize(size);
