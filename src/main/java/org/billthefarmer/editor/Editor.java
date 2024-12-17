@@ -38,6 +38,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.hardware.lights.Light;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -791,31 +792,31 @@ public class Editor extends Activity
             highlightClicked(item);
             break;
         case R.id.light:
-            lightClicked(item);
+            themeClicked(item, LIGHT);
             break;
         case R.id.dark:
-            darkClicked(item);
+            themeClicked(item,DARK);
             break;
         case R.id.system:
-            systemClicked(item);
+            themeClicked(item,SYSTEM);
             break;
         case R.id.white:
-            whiteClicked(item);
+            themeClicked(item,WHITE);
             break;
         case R.id.black:
-            blackClicked(item);
+            themeClicked(item,BLACK);
             break;
         case R.id.retro:
-            retroClicked(item);
+            themeClicked(item,RETRO);
             break;
         case R.id.small:
-            smallClicked(item);
+            textSizeClicked(item,SMALL);
             break;
         case R.id.medium:
-            mediumClicked(item);
+            textSizeClicked(item,MEDIUM);
             break;
         case R.id.large:
-            largeClicked(item);
+            textSizeClicked(item,LARGE);
             break;
         case R.id.about:
             aboutClicked();
@@ -1621,76 +1622,16 @@ public class Editor extends Activity
         checkHighlight();
     }
 
-    // lightClicked
-    private void lightClicked(MenuItem item)
+    private void themeClicked(MenuItem item,int selectedTheme)
     {
-        theme = LIGHT;
+        theme = selectedTheme;
         item.setChecked(true);
         recreate(this);
     }
 
-    // darkClicked
-    private void darkClicked(MenuItem item)
+    private void textSizeClicked(MenuItem item, int selectedSize)
     {
-        theme = DARK;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // systemClicked
-    private void systemClicked(MenuItem item)
-    {
-        theme = SYSTEM;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // whiteClicked
-    private void whiteClicked(MenuItem item)
-    {
-        theme = WHITE;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // blackClicked
-    private void blackClicked(MenuItem item)
-    {
-        theme = BLACK;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // retroClicked
-    private void retroClicked(MenuItem item)
-    {
-        theme = RETRO;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // smallClicked
-    private void smallClicked(MenuItem item)
-    {
-        size = SMALL;
-        item.setChecked(true);
-
-        textView.setTextSize(size);
-    }
-
-    // mediumClicked
-    private void mediumClicked(MenuItem item)
-    {
-        size = MEDIUM;
-        item.setChecked(true);
-
-        textView.setTextSize(size);
-    }
-
-    // largeClicked
-    private void largeClicked(MenuItem item)
-    {
-        size = LARGE;
+        size = selectedSize;
         item.setChecked(true);
 
         textView.setTextSize(size);
