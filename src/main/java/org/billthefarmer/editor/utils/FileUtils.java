@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.utils;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -24,13 +24,14 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
+
+import org.billthefarmer.editor.BuildConfig;
 
 import java.io.File;
 import java.io.FileFilter;

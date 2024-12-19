@@ -23,13 +23,13 @@ package org.billthefarmer.editor;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.os.Environment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+
+import org.billthefarmer.editor.utils.FileUtils;
 
 import java.io.File;
 import java.util.List;
