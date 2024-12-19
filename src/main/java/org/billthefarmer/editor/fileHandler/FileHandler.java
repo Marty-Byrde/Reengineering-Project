@@ -67,7 +67,8 @@ public class FileHandler implements IFileHandler {
         return text;
     }
 
-    public CharSequence readFileFromUri(Context context, Uri uri) {
+    public CharSequence readFileFromUri(Uri uri) {
+        Context context = sharedVariables.appContext;
         if (context == null || uri == null) {
             return "";
         }
@@ -128,9 +129,10 @@ public class FileHandler implements IFileHandler {
         sharedVariables.modified = file.lastModified();
     }
 
-    public void writeToOutputStream(CharSequence text, OutputStream os,String charset) throws IOException {
+    public void writeToUri(CharSequence text, String charset,Uri uri) throws IOException {
 
-        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, charset));
+        OutputStream outputStream = sharedVariables.appContext.getContentResolver().openOutputStream(uri, "rwt");
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, charset));
         writer.append(text);
         writer.flush();
 

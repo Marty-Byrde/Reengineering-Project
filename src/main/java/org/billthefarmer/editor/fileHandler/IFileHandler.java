@@ -10,7 +10,7 @@ import java.io.OutputStream;
 public interface IFileHandler {
     CharSequence readFileFromFile(File file);
     void writeToFile(CharSequence text, File file,String charset) throws IOException;
-    void writeToOutputStream(CharSequence text, OutputStream os, String charset) throws IOException;
+    void writeToUri(CharSequence text, String charset,Uri uri) throws IOException;
     File getNewFile();
-    CharSequence readFileFromUri(Context context, Uri uri);
+    CharSequence readFileFromUri(Uri uri);
 }

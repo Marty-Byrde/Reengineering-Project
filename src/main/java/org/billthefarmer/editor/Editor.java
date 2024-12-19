@@ -123,7 +123,6 @@ public class Editor extends Activity
     private MenuItem searchItem;
     private SearchView searchView;
     private ScrollView scrollView;
-    private Runnable updateHighlight;
     private Runnable updateWordCount;
 
     private ScaleGestureDetector scaleDetector;
@@ -159,6 +158,8 @@ public class Editor extends Activity
         sharedConstants = SharedConstants.getInstance();
         sharedVariables = SharedVariables.getInstance();
         editorTextUtils = EditorTextUtils.getInstance();
+
+        sharedVariables.appContext = this;
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
@@ -280,10 +281,10 @@ public class Editor extends Activity
                         invalidateOptionsMenu();
                     }
 
-                    if (updateHighlight != null)
+                    if (sharedVariables.updateHighlight != null)
                     {
-                        textView.removeCallbacks(updateHighlight);
-                        textView.postDelayed(updateHighlight, sharedConstants.UPDATE_DELAY);
+                        textView.removeCallbacks(sharedVariables.updateHighlight);
+                        textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
                     }
 
                     if (updateWordCount != null)
@@ -328,10 +329,10 @@ public class Editor extends Activity
                 if (!hasFocus)
                     manager.hideSoftInputFromWindow(v.getWindowToken(), 0);
 
-                if (updateHighlight != null)
+                if (sharedVariables.updateHighlight != null)
                 {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, sharedConstants.UPDATE_DELAY);
+                    textView.removeCallbacks(sharedVariables.updateHighlight);
+                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
                 }
             });
 
@@ -378,10 +379,10 @@ public class Editor extends Activity
 
             textView.getViewTreeObserver().addOnGlobalLayoutListener(() ->
             {
-                if (updateHighlight != null)
+                if (sharedVariables.updateHighlight != null)
                 {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, sharedConstants.UPDATE_DELAY);
+                    textView.removeCallbacks(sharedVariables.updateHighlight);
+                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
                 }
             });
         }
@@ -391,10 +392,10 @@ public class Editor extends Activity
             // onScrollChange
             scrollView.getViewTreeObserver().addOnScrollChangedListener(() ->
             {
-                if (updateHighlight != null)
+                if (sharedVariables.updateHighlight != null)
                 {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, sharedConstants.UPDATE_DELAY);
+                    textView.removeCallbacks(sharedVariables.updateHighlight);
+                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
                 }
             });
         }
@@ -427,15 +428,14 @@ public class Editor extends Activity
             sharedVariables.match = sharedConstants.UTF_8;
         getActionBar().setSubtitle(sharedVariables.match);
 
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
 
         if (file.lastModified() > sharedVariables.modified)
             alertDialog(this, R.string.appName, R.string.changedReload,
                         R.string.reload, R.string.cancel, (dialog, id) ->
         {
-            switch (id)
+            if(id == DialogInterface.BUTTON_POSITIVE)
             {
-            case DialogInterface.BUTTON_POSITIVE:
                 readFile(uri);
             }
         });
@@ -451,7 +451,7 @@ public class Editor extends Activity
         savePath(path);
 
         // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
+        textView.removeCallbacks(sharedVariables.updateHighlight);
         textView.removeCallbacks(updateWordCount);
 
         SharedPreferences preferences =
@@ -494,6 +494,7 @@ public class Editor extends Activity
     public void onSaveInstanceState(Bundle outState)
     {
         super.onSaveInstanceState(outState);
+
 
         outState.putParcelable(sharedConstants.CONTENT, content);
         outState.putLong(sharedConstants.MODIFIED, sharedVariables.modified);
@@ -1521,7 +1522,7 @@ public class Editor extends Activity
         editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
     }
 
     private void themeClicked(MenuItem item,int selectedTheme)
@@ -1826,7 +1827,7 @@ public class Editor extends Activity
         textView.setText(R.string.loading);
 
         try {
-            CharSequence fileContent = fileHandler.readFileFromUri(this, uri);
+            CharSequence fileContent = fileHandler.readFileFromUri(uri);
             displayText(fileContent);
         } catch (Exception e) {
             Log.e(sharedConstants.TAG, "Error reading file: " + e.getMessage(), e);
@@ -1861,7 +1862,7 @@ public class Editor extends Activity
     }
 
     private void removeTextViewCallbacks() {
-        textView.removeCallbacks(updateHighlight);
+        textView.removeCallbacks(sharedVariables.updateHighlight);
         textView.removeCallbacks(updateWordCount);
     }
 
@@ -1917,7 +1918,7 @@ public class Editor extends Activity
         checkMode(text);
 
         // Check highlighting
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
 
         // Set read only
         if ((boolean) editorPreferences.get(Preferences.isReadOnly))
@@ -1967,6 +1968,7 @@ public class Editor extends Activity
 
             if (file.lastModified() > sharedVariables.modified) {
                 promptOverwrite();
+                sharedVariables.changed = false;
             } else {
                 saveFile(content != null ? content : file);
             }
@@ -2007,9 +2009,8 @@ public class Editor extends Activity
     }
 
     private void writeToUri(Uri uri, CharSequence textContent, String charset) throws IOException {
-        try (OutputStream outputStream = getContentResolver().openOutputStream(uri, "rwt")) {
-            fileHandler.writeToOutputStream(textContent, outputStream, charset);
-        }
+            fileHandler.writeToUri(textContent, charset,uri);
+
     }
 
     private void writeToFile(File file, CharSequence textContent, String charset) throws IOException {
@@ -2145,7 +2146,7 @@ public class Editor extends Activity
                         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
                             editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
+                            editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
                         }
                     }
 

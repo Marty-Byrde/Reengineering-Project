@@ -48,7 +48,7 @@ public class EditorTextUtils implements IEditorTextUtils{
         }
     }
 
-    public void checkHighlight(Map editorPreferences, File file,EditText textView,ScrollView scrollView, Runnable updateHighlight)
+    public void checkHighlight(Map editorPreferences, File file,EditText textView,ScrollView scrollView)
     {
         // No syntax
         sharedVariables.syntax = NO_SYNTAX;
@@ -88,12 +88,12 @@ public class EditorTextUtils implements IEditorTextUtils{
                 // Add callback
                 if (textView != null && sharedVariables.syntax != NO_SYNTAX)
                 {
-                    if (updateHighlight == null) {
-                        updateHighlight = () -> highlightText(scrollView,textView);
+                    if (sharedVariables.updateHighlight == null) {
+                        sharedVariables.updateHighlight = () -> highlightText(scrollView,textView);
                     }
 
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
+                    textView.removeCallbacks(sharedVariables.updateHighlight);
+                    textView.postDelayed(sharedVariables.updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
 
                     return;
                 }
@@ -101,12 +101,12 @@ public class EditorTextUtils implements IEditorTextUtils{
         }
 
         // Remove highlighting
-        if (updateHighlight != null)
+        if (sharedVariables.updateHighlight != null)
         {
-            textView.removeCallbacks(updateHighlight);
-            textView.postDelayed(updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
+            textView.removeCallbacks(sharedVariables.updateHighlight);
+            textView.postDelayed(sharedVariables.updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
 
-            updateHighlight = null;
+            sharedVariables.updateHighlight = null;
         }
     }
 
