@@ -688,7 +688,7 @@ public class Editor extends Activity
             openFile();
             break;
         case R.id.save:
-            saveCheck();
+            saveFileHandler();
             break;
         case R.id.saveAs:
             saveAs();
@@ -891,7 +891,7 @@ public class Editor extends Activity
                 if (event.isShiftPressed())
                     saveAs();
                 else
-                    saveCheck();
+                    saveFileHandler();
                 break;
                 // Increase text size
             case KeyEvent.KEYCODE_PLUS:
@@ -1951,29 +1951,25 @@ public class Editor extends Activity
     }
 
 
-    // saveCheck
-    private void saveCheck() {
-        Uri currentUri = Uri.fromFile(file);
-        Uri newFileUri = Uri.fromFile(fileHandler.getNewFile());
-
-        if (content == null && newFileUri.getPath().equals(currentUri.getPath())) {
-            saveAs();
-        } else {
-            saveFileHandler();
-        }
-    }
 
     private void saveFileHandler() {
         if (!checkPermissions(sharedConstants.REQUEST_SAVE)) {
             return;
         }
 
-        removeTextViewCallbacks();
+        Uri currentUri = Uri.fromFile(file);
+        Uri newFileUri = Uri.fromFile(fileHandler.getNewFile());
 
-        if (file.lastModified() > sharedVariables.modified) {
-            promptOverwrite();
+        if (content == null && newFileUri.getPath().equals(currentUri.getPath())) {
+            saveAs();
         } else {
-            saveFile(content != null ? content : file);
+                removeTextViewCallbacks();
+
+            if (file.lastModified() > sharedVariables.modified) {
+                promptOverwrite();
+            } else {
+                saveFile(content != null ? content : file);
+            }
         }
     }
     private void promptOverwrite() {

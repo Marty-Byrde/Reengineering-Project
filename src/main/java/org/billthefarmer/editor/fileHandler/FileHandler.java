@@ -9,7 +9,6 @@ import com.ibm.icu.text.CharsetDetector;
 import com.ibm.icu.text.CharsetMatch;
 
 import org.billthefarmer.editor.BuildConfig;
-import org.billthefarmer.editor.Editor;
 import org.billthefarmer.editor.R;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.values.SharedVariables;
@@ -19,7 +18,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
