@@ -135,7 +135,6 @@ public class Editor extends Activity
     private int theme = LIGHT;
     private int type = MONO;
 
-    private int syntax;
 
     private Map<Preferences, Object> editorPreferences;
 
@@ -433,7 +432,7 @@ public class Editor extends Activity
             sharedVariables.match = sharedConstants.UTF_8;
         getActionBar().setSubtitle(sharedVariables.match);
 
-        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
 
         if (file.lastModified() > sharedVariables.modified)
             alertDialog(this, R.string.appName, R.string.changedReload,
@@ -1571,7 +1570,7 @@ public class Editor extends Activity
         editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
-        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
     }
 
     private void themeClicked(MenuItem item,int selectedTheme)
@@ -2145,7 +2144,7 @@ public class Editor extends Activity
                         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
                             editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+                            editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
                         }
                     }
 
@@ -2304,7 +2303,7 @@ public class Editor extends Activity
         checkMode(text);
 
         // Check highlighting
-        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
 
         // Set read only
         if ((boolean) editorPreferences.get(Preferences.isReadOnly))

@@ -8,6 +8,7 @@ public class SharedVariables {
     public boolean changed = false;
     public long modified;
     public int size = MEDIUM;
+    public int syntax;
 
 
     private static SharedVariables instance;

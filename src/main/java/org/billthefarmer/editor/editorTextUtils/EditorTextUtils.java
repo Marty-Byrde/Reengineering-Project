@@ -11,6 +11,7 @@ import android.widget.TextView;
 import org.billthefarmer.editor.preferences.Preferences;
 import org.billthefarmer.editor.utils.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
+import org.billthefarmer.editor.values.SharedVariables;
 
 import java.io.File;
 import java.util.Locale;
@@ -21,7 +22,9 @@ import static org.billthefarmer.editor.SyntaxPatternParameters.*;
 
 public class EditorTextUtils implements IEditorTextUtils{
     private static EditorTextUtils instance;
+    private SharedVariables sharedVariables;
     private EditorTextUtils(){
+        sharedVariables = SharedVariables.getInstance();
     }
     public static synchronized EditorTextUtils getInstance() {
         if (instance == null) {
@@ -45,10 +48,10 @@ public class EditorTextUtils implements IEditorTextUtils{
         }
     }
 
-    public void checkHighlight(int syntax, Map editorPreferences, File file,EditText textView,ScrollView scrollView, Runnable updateHighlight)
+    public void checkHighlight(Map editorPreferences, File file,EditText textView,ScrollView scrollView, Runnable updateHighlight)
     {
         // No syntax
-        syntax = NO_SYNTAX;
+        sharedVariables.syntax = NO_SYNTAX;
 
         // Check extension
         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) && file != null)
@@ -59,35 +62,34 @@ public class EditorTextUtils implements IEditorTextUtils{
                 String type = FileUtils.getMimeType(file);
 
                 if (ext.matches(CC_EXT))
-                    syntax = CC_SYNTAX;
+                    sharedVariables.syntax = CC_SYNTAX;
 
                 else if (ext.matches(HTML_EXT))
-                    syntax = HTML_SYNTAX;
+                    sharedVariables.syntax = HTML_SYNTAX;
 
                 else if (ext.matches(CSS_EXT))
-                    syntax = CSS_SYNTAX;
+                    sharedVariables.syntax = CSS_SYNTAX;
 
                 else if (ext.matches(ORG_EXT))
-                    syntax = ORG_SYNTAX;
+                    sharedVariables.syntax = ORG_SYNTAX;
 
                 else if (ext.matches(MD_EXT))
-                    syntax = MD_SYNTAX;
+                    sharedVariables.syntax = MD_SYNTAX;
 
                 else if (ext.matches(SH_EXT))
-                    syntax = SH_SYNTAX;
+                    sharedVariables.syntax = SH_SYNTAX;
 
                 else if (!SharedConstants.getInstance().TEXT_PLAIN.equals(type))
-                    syntax = DEF_SYNTAX;
+                    sharedVariables.syntax = DEF_SYNTAX;
 
                 else
-                    syntax = NO_SYNTAX;
+                    sharedVariables.syntax = NO_SYNTAX;
 
                 // Add callback
-                if (textView != null && syntax != NO_SYNTAX)
+                if (textView != null && sharedVariables.syntax != NO_SYNTAX)
                 {
                     if (updateHighlight == null) {
-                        int finalSyntax = syntax;
-                        updateHighlight = () -> highlightText(scrollView,textView, finalSyntax);
+                        updateHighlight = () -> highlightText(scrollView,textView);
                     }
 
                     textView.removeCallbacks(updateHighlight);
@@ -108,7 +110,7 @@ public class EditorTextUtils implements IEditorTextUtils{
         }
     }
 
-    public void highlightText(ScrollView scrollView, EditText textView, int syntax)
+    public void highlightText(ScrollView scrollView, EditText textView)
     {
         // Get visible extent
         int top = scrollView.getScrollY();
@@ -142,7 +144,7 @@ public class EditorTextUtils implements IEditorTextUtils{
 
         Matcher matcher;
 
-        switch (syntax)
+        switch (sharedVariables.syntax)
         {
             case NO_SYNTAX:
                 // Get current spans
