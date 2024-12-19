@@ -19,7 +19,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.helpers;
 
 import android.content.Context;
 import android.content.res.TypedArray;
@@ -29,7 +29,7 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
 
-import org.billthefarmer.editor.utils.FileUtils;
+import org.billthefarmer.editor.R;
 
 import java.io.File;
 import java.util.List;

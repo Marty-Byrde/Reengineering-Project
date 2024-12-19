@@ -9,7 +9,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.billthefarmer.editor.preferences.Preferences;
-import org.billthefarmer.editor.utils.FileUtils;
+import org.billthefarmer.editor.helpers.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.values.SharedVariables;
 
@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 
-import static org.billthefarmer.editor.SyntaxPatternParameters.*;
+import static org.billthefarmer.editor.helpers.SyntaxPatternParameters.*;
 
 public class EditorTextUtils implements IEditorTextUtils{
     private static EditorTextUtils instance;

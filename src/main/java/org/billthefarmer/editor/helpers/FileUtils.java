@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.billthefarmer.editor.utils;
+package org.billthefarmer.editor.helpers;
 
 import android.content.ContentResolver;
 import android.content.ContentUris;

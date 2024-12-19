@@ -1,4 +1,4 @@
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.helpers;
 
 import java.util.regex.Pattern;
 

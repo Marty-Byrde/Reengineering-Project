@@ -38,7 +38,7 @@ import android.preference.PreferenceManager;
 import android.widget.Button;
 import android.widget.TextView;
 
-import org.billthefarmer.editor.utils.FileUtils;
+import org.billthefarmer.editor.helpers.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.preferences.EditorPreferenceParameters;
 

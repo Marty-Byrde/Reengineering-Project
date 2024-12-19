@@ -1,0 +1,517 @@
+@startuml
+
+/' diagram meta data start
+config=StructureConfiguration;
+{
+  "projectClassification": {
+    "searchMode": "OpenProject", // OpenProject, AllProjects
+    "includedProjects": "",
+    "pathEndKeywords": "*.impl",
+    "isClientPath": "",
+    "isClientName": "",
+    "isTestPath": "",
+    "isTestName": "",
+    "isMappingPath": "",
+    "isMappingName": "",
+    "isDataAccessPath": "",
+    "isDataAccessName": "",
+    "isDataStructurePath": "",
+    "isDataStructureName": "",
+    "isInterfaceStructuresPath": "",
+    "isInterfaceStructuresName": "",
+    "isEntryPointPath": "",
+    "isEntryPointName": "",
+    "treatFinalFieldsAsMandatory": false
+  },
+  "graphRestriction": {
+    "classPackageExcludeFilter": "",
+    "classPackageIncludeFilter": "",
+    "classNameExcludeFilter": "",
+    "classNameIncludeFilter": "",
+    "methodNameExcludeFilter": "",
+    "methodNameIncludeFilter": "",
+    "removeByInheritance": "", // inheritance/annotation based filtering is done in a second step
+    "removeByAnnotation": "",
+    "removeByClassPackage": "", // cleanup the graph after inheritance/annotation based filtering is done
+    "removeByClassName": "",
+    "cutMappings": false,
+    "cutEnum": true,
+    "cutTests": true,
+    "cutClient": true,
+    "cutDataAccess": true,
+    "cutInterfaceStructures": true,
+    "cutDataStructures": true,
+    "cutGetterAndSetter": true,
+    "cutConstructors": true
+  },
+  "graphTraversal": {
+    "forwardDepth": 3,
+    "backwardDepth": 3,
+    "classPackageExcludeFilter": "",
+    "classPackageIncludeFilter": "",
+    "classNameExcludeFilter": "",
+    "classNameIncludeFilter": "",
+    "methodNameExcludeFilter": "",
+    "methodNameIncludeFilter": "",
+    "hideMappings": false,
+    "hideDataStructures": false,
+    "hidePrivateMethods": true,
+    "hideInterfaceCalls": true, // indirection: implementation -> interface (is hidden) -> implementation
+    "onlyShowApplicationEntryPoints": false, // root node is included
+    "useMethodCallsForStructureDiagram": "ForwardOnly" // ForwardOnly, BothDirections, No
+  },
+  "details": {
+    "aggregation": "GroupByClass", // ByClass, GroupByClass, None
+    "showClassGenericTypes": true,
+    "showMethods": true,
+    "showMethodParameterNames": true,
+    "showMethodParameterTypes": true,
+    "showMethodReturnType": true,
+    "showPackageLevels": 2,
+    "showDetailedClassStructure": true
+  },
+  "rootClass": "org.billthefarmer.editor.Editor",
+  "extensionCallbackMethod": "" // qualified.class.name#methodName - signature: public static String method(String)
+}
+diagram meta data end '/
+
+
+
+digraph g {
+    rankdir="TB"
+    splines=polyline
+    
+
+'nodes 
+subgraph cluster_104052 { 
+   	label=ibm
+	labeljust=l
+	fillcolor="#ececec"
+	style=filled
+   
+   subgraph cluster_1606401057 { 
+   	label=icu
+	labeljust=l
+	fillcolor="#d8d8d8"
+	style=filled
+   
+   CharsetDetector498462169[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)CharsetDetector</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >#   fByteStats: short[] [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fC1Bytes: boolean [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fDeclaredEncoding: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fEnabledRecognizers: boolean[] [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fInputBytes: byte[] [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fInputLen: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fInputStream: InputStream [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fRawInput: byte[] [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >#   fRawLength: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fStripTags: boolean [1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >- MungeInput()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ detect(): CharsetMatch</TD></TR>
+<TR><TD ALIGN="LEFT" >+ detectAll(): CharsetMatch[]</TD></TR>
+<TR><TD ALIGN="LEFT" >+ enableInputFilter(filter: boolean): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getReader(in: InputStream, declaredEncoding: String): Reader</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getString(in: byte[], declaredEncoding: String): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ inputFilterEnabled(): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ setDeclaredEncoding(encoding: String): CharsetDetector</TD></TR>
+<TR><TD ALIGN="LEFT" >+ setDetectableCharset(encoding: String, enabled: boolean): CharsetDetector</TD></TR>
+<TR><TD ALIGN="LEFT" >+ setText(in: byte[]): CharsetDetector</TD></TR>
+<TR><TD ALIGN="LEFT" >+ setText(in: InputStream): CharsetDetector</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+CharsetMatch498462169[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)CharsetMatch</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   fCharsetName: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fConfidence: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fInputStream: InputStream [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fLang: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fRawInput: byte[] [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   fRawLength: int [1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ compareTo(other: CharsetMatch): int</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getString(maxLength: int): String</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+CharsetRecognizer498462169[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)CharsetRecognizer</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" ># match(det: CharsetDetector): CharsetMatch</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+} 
+} 
+
+subgraph cluster_1248398061 { 
+   	label=billthefarmer
+	labeljust=l
+	fillcolor="#ececec"
+	style=filled
+   
+   subgraph cluster_135858062 { 
+   	label=editor
+	labeljust=l
+	fillcolor="#d8d8d8"
+	style=filled
+   
+   Editor1171887016[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)Editor</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   content: Uri [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   customView: TextView [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   edit: boolean [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   editorPreferences: Map&lt;Preferences, Object&gt; [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   file: File [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   path: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   pathMap: Map&lt;String, Integer&gt; [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   queryTextListener: QueryTextListener [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   removeList: List&lt;String&gt; [0..*]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   scaleDetector: ScaleGestureDetector [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   scrollView: ScrollView [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   searchItem: MenuItem [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   searchView: SearchView [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   textView: EditText [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   theme: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   type: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   updateHighlight: Runnable [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   updateWordCount: Runnable [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   uri: Uri [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >- aboutClicked()</TD></TR>
+<TR><TD ALIGN="LEFT" >- alertDialog(context: Context, title: int, message: int, positiveButton: int, negativeButton: int, listener: OnClickListener)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ alertDialog(context: Context, title: int, message: String, neutralButton: int)</TD></TR>
+<TR><TD ALIGN="LEFT" >- autoSaveClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- buildNewAlertDialog(context: Context, title: int, message: String): Builder</TD></TR>
+<TR><TD ALIGN="LEFT" >- checkMode(text: CharSequence)</TD></TR>
+<TR><TD ALIGN="LEFT" >- checkPermissions(requestCode: int): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- clearList()</TD></TR>
+<TR><TD ALIGN="LEFT" >- defaultFile(text: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ dispatchTouchEvent(event: MotionEvent): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- editClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ findAll()</TD></TR>
+<TR><TD ALIGN="LEFT" >- getFile()</TD></TR>
+<TR><TD ALIGN="LEFT" >- getFile(dir: File)</TD></TR>
+<TR><TD ALIGN="LEFT" >- getFileSize(uri: Uri): long</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getList(dir: File): List&lt;File&gt;</TD></TR>
+<TR><TD ALIGN="LEFT" >+ goTo()</TD></TR>
+<TR><TD ALIGN="LEFT" >- gotoDialog(listener: OnSeekBarChangeListener)</TD></TR>
+<TR><TD ALIGN="LEFT" >- highlightClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- lastFile()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ loadText(text: CharSequence)</TD></TR>
+<TR><TD ALIGN="LEFT" >- newFile()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onActionModeStarted(mode: ActionMode)</TD></TR>
+<TR><TD ALIGN="LEFT" ># onActivityResult(requestCode: int, resultCode: int, data: Intent)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onBackPressed()</TD></TR>
+<TR><TD ALIGN="LEFT" ># onCreate(savedInstanceState: Bundle)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onCreateOptionsMenu(menu: Menu): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onKeyDown(keyCode: int, event: KeyEvent): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onOptionsItemSelected(item: MenuItem): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onPause()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onPrepareOptionsMenu(menu: Menu): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onRequestPermissionsResult(requestCode: int, permissions: String[], grantResults: int[])</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onRestoreInstanceState(savedInstanceState: Bundle)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onSaveInstanceState(outState: Bundle)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ openDialog(context: Context, dirList: List&lt;String&gt;, fileList: List&lt;File&gt;, listener: OnClickListener)</TD></TR>
+<TR><TD ALIGN="LEFT" >- openFile()</TD></TR>
+<TR><TD ALIGN="LEFT" >- openLastClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- openRecent(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- prepareExistingFile(uri: Uri)</TD></TR>
+<TR><TD ALIGN="LEFT" >- prepareFileForReading()</TD></TR>
+<TR><TD ALIGN="LEFT" >- print()</TD></TR>
+<TR><TD ALIGN="LEFT" >- readFile(uri: Uri)</TD></TR>
+<TR><TD ALIGN="LEFT" >- recreate(context: Context)</TD></TR>
+<TR><TD ALIGN="LEFT" >- resolveContent(uri: Uri): Uri</TD></TR>
+<TR><TD ALIGN="LEFT" >- resolveOrSetContentUri(uri: Uri): Uri</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveAs()</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveAsDialog(context: Context, path: String, listener: OnClickListener)</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveCheck()</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveFile(input: Object)</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveFileHandler()</TD></TR>
+<TR><TD ALIGN="LEFT" >- savePath(path: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >- showFileTooLargeAlert(size: long)</TD></TR>
+<TR><TD ALIGN="LEFT" >- stopTextViewUpdates()</TD></TR>
+<TR><TD ALIGN="LEFT" >- suggestClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- textSizeClicked(item: MenuItem, selectedSize: int)</TD></TR>
+<TR><TD ALIGN="LEFT" >- themeClicked(item: MenuItem, selectedTheme: int)</TD></TR>
+<TR><TD ALIGN="LEFT" >- updateSharedVariables()</TD></TR>
+<TR><TD ALIGN="LEFT" >- viewClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- viewFileClicked(item: MenuItem)</TD></TR>
+<TR><TD ALIGN="LEFT" >- viewMarkdown()</TD></TR>
+<TR><TD ALIGN="LEFT" >- wrapClicked(item: MenuItem)</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+EditorPreferenceHandler847954334[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)EditorPreferenceHandler</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ fetchPreferences(resources: Resources, sharedPreferences: SharedPreferences): HashMap&lt;Preferences, Object&gt;</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+EditorTextUtils700707585[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)EditorTextUtils</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   sharedVariables: SharedVariables [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ checkHighlight(editorPreferences: Map, file: File, textView: EditText, scrollView: ScrollView, updateHighlight: Runnable)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ highlightText(scrollView: ScrollView, textView: EditText)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ wordCountText(textView: TextView, customView: TextView)</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+FileHandler246254184[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)FileHandler</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ readFileContent(context: Context, uri: Uri): CharSequence</TD></TR>
+<TR><TD ALIGN="LEFT" >+ readFileFromFile(file: File): CharSequence</TD></TR>
+<TR><TD ALIGN="LEFT" >+ writeToFile(text: CharSequence, file: File, charset: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ writeToOutputStream(text: CharSequence, os: OutputStream, charset: String)</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+FileUtils453080337[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)FileUtils</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ createGetContentIntent(): Intent</TD></TR>
+<TR><TD ALIGN="LEFT" >+ fileProviderPath(uri: Uri): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getDataColumn(context: Context, uri: Uri, selection: String, selectionArgs: String[]): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getDisplayName(context: Context, uri: Uri, selection: String, selectionArgs: String[]): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getExtension(uri: String): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getFile(context: Context, uri: Uri): File</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getMimeType(file: File): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getMimeType(context: Context, uri: Uri): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getPath(context: Context, uri: Uri): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getPathWithoutFilename(file: File): File</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getReadableFileSize(size: long): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getSize(context: Context, uri: Uri, selection: String, selectionArgs: String[]): long</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getThumbnail(context: Context, file: File): Bitmap</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getThumbnail(context: Context, uri: Uri): Bitmap</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getThumbnail(context: Context, uri: Uri, mimeType: String): Bitmap</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getUri(file: File): Uri</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isDownloadsDocument(uri: Uri): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isExternalStorageDocument(uri: Uri): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isGooglePhotosUri(uri: Uri): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isLocal(url: String): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isMediaDocument(uri: Uri): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ isMediaUri(uri: Uri): boolean</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+FindTask1614754787[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)FindTask</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   editorWeakReference: WeakReference&lt;Editor&gt; [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   pattern: Pattern [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   search: String [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" ># doInBackground(params: String...): List&lt;File&gt;</TD></TR>
+<TR><TD ALIGN="LEFT" ># onPostExecute(matchList: List&lt;File&gt;)</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+QueryTextListener2005210601[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)QueryTextListener</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   editable: Editable [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   height: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   index: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   matcher: Matcher [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   pattern: Pattern [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   scrollView: ScrollView [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   span: BackgroundColorSpan [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   textView: TextView [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ onQueryTextChange(newText: String): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onQueryTextSubmit(query: String): boolean</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+ReadTask2005210601[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)ReadTask</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   editorWeakReference: WeakReference&lt;Editor&gt; [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" ># doInBackground(uris: Uri...): CharSequence</TD></TR>
+<TR><TD ALIGN="LEFT" ># onPostExecute(result: CharSequence)</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+SharedVariables1280064648[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)SharedVariables</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+   changed: boolean [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   match: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   modified: long [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   size: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   syntax: int [1]</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+} 
+} 
+
+subgraph cluster_1854767153 { 
+   	label=support
+	labeljust=l
+	fillcolor="#ececec"
+	style=filled
+   
+   subgraph cluster_613944067 { 
+   	label=v4
+	labeljust=l
+	fillcolor="#d8d8d8"
+	style=filled
+   
+   FileProvider308050535[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)FileProvider</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   mStrategy: PathStrategy [0..1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ attachInfo(context: Context, info: ProviderInfo)</TD></TR>
+<TR><TD ALIGN="LEFT" >- buildPath(base: File, segments: String...): File</TD></TR>
+<TR><TD ALIGN="LEFT" >- copyOf(original: String[], newLength: int): String[]</TD></TR>
+<TR><TD ALIGN="LEFT" >- copyOf(original: Object[], newLength: int): Object[]</TD></TR>
+<TR><TD ALIGN="LEFT" >+ delete(uri: Uri, selection: String, selectionArgs: String[]): int</TD></TR>
+<TR><TD ALIGN="LEFT" >- getPathStrategy(context: Context, authority: String): PathStrategy</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getType(uri: Uri): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getUriForFile(context: Context, authority: String, file: File): Uri</TD></TR>
+<TR><TD ALIGN="LEFT" >+ insert(uri: Uri, values: ContentValues): Uri</TD></TR>
+<TR><TD ALIGN="LEFT" >- modeToMode(mode: String): int</TD></TR>
+<TR><TD ALIGN="LEFT" >+ onCreate(): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ openFile(uri: Uri, mode: String): ParcelFileDescriptor</TD></TR>
+<TR><TD ALIGN="LEFT" >- parsePathStrategy(context: Context, authority: String): PathStrategy</TD></TR>
+<TR><TD ALIGN="LEFT" >+ query(uri: Uri, projection: String[], selection: String, selectionArgs: String[], sortOrder: String): Cursor</TD></TR>
+<TR><TD ALIGN="LEFT" >+ update(uri: Uri, values: ContentValues, selection: String, selectionArgs: String[]): int</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+
+SimplePathStrategy1805940780[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)SimplePathStrategy</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   mAuthority: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >-   mRoots: HashMap&lt;String, File&gt; [0..*]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ addRoot(name: String, root: File)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getFileForUri(uri: Uri): File</TD></TR>
+<TR><TD ALIGN="LEFT" >+ getUriForFile(file: File): Uri</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+} 
+} 
+
+subgraph cluster_1898238245 { 
+   	label=KotlinIntegrationTest
+	labeljust=l
+	fillcolor="#ececec"
+	style=filled
+   
+   KotlinIntegrationTest1898238245[
+	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
+<TR><TD ALIGN="LEFT" >(C)KotlinIntegrationTest</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >-   activityRule: ActivityScenarioRule&lt;Editor&gt; [1]</TD></TR>
+<HR/>
+<TR><TD ALIGN="LEFT" >+ exampleIntegration()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ testCreateAndSaveFile_WithContent()</TD></TR>
+</TABLE>>
+	style=filled
+	margin=0
+	shape=plaintext
+	fillcolor="#FFFFFF"
+];
+} 
+
+'edges    
+CharsetDetector498462169 -> CharsetMatch498462169[label="getString() -> getString()"];
+CharsetDetector498462169 -> CharsetRecognizer498462169[label="detectAll() -> match()"];
+Editor1171887016 -> EditorPreferenceHandler847954334[label="onCreate() -> fetchPreferences()"];
+Editor1171887016 -> FileHandler246254184[label="readFile() -> readFileContent()"];
+Editor1171887016 -> FileProvider308050535[label="viewMarkdown() -> getUriForFile()"];
+Editor1171887016 -> QueryTextListener2005210601[label="queryTextListener
+[0..1]"];
+EditorTextUtils700707585 -> SharedVariables1280064648[label="sharedVariables
+[0..1]"];
+FileProvider308050535 -> SimplePathStrategy1805940780[label="parsePathStrategy() -> addRoot()"];
+FindTask1614754787 -> Editor1171887016[label="editorWeakReference
+[0..1]"];
+KotlinIntegrationTest1898238245 -> Editor1171887016[label="activityRule
+[1]"];
+ReadTask2005210601 -> Editor1171887016[label="editorWeakReference
+[0..1]"];
+    
+}
+@enduml

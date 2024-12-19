@@ -1,8 +1,10 @@
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.helpers;
 
 import android.app.Activity;
 import android.content.res.Configuration;
 import android.util.Log;
+
+import org.billthefarmer.editor.R;
 
 public class ThemeHandler
 {

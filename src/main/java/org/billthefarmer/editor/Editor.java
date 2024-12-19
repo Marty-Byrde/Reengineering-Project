@@ -23,7 +23,7 @@
 
 package org.billthefarmer.editor;
 
-import static org.billthefarmer.editor.SyntaxPatternParameters.*;
+import static org.billthefarmer.editor.helpers.SyntaxPatternParameters.*;
 import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
 
 import android.Manifest;
@@ -80,12 +80,13 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import org.billthefarmer.editor.editorSubClasses.QueryTextListener;
-import org.billthefarmer.editor.editorSubClasses.ReadTask;
 import org.billthefarmer.editor.editorSubClasses.ScaleListener;
 import org.billthefarmer.editor.fileHandler.FileHandler;
 import org.billthefarmer.editor.fileHandler.IFileHandler;
 import org.billthefarmer.editor.editorTextUtils.EditorTextUtils;
-import org.billthefarmer.editor.utils.FileUtils;
+import org.billthefarmer.editor.helpers.FileAdapter;
+import org.billthefarmer.editor.helpers.ThemeHandler;
+import org.billthefarmer.editor.helpers.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.values.SharedVariables;
 import org.billthefarmer.editor.preferences.EditorPreferenceHandler;
@@ -96,6 +97,7 @@ import org.commonmark.renderer.html.HtmlRenderer;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
@@ -207,8 +209,7 @@ public class Editor extends Activity
 
         switch (intent.getAction())
         {
-        case Intent.ACTION_EDIT:
-        case Intent.ACTION_VIEW:
+        case Intent.ACTION_VIEW,Intent.ACTION_EDIT:
             if ((savedInstanceState == null) && (uri != null))
                 readFile(uri);
 
@@ -227,19 +228,19 @@ public class Editor extends Activity
 
                 else if (text != null)
                 {
-                    newFile(text);
+                    defaultFile(text);
                     sharedVariables.changed = true;
                 }
 
                 else
-                    defaultFile();
+                    defaultFile(null);
             }
             break;
 
         case "org.billthefarmer.editor.OPEN_NEW":
             if (savedInstanceState == null)
             {
-                newFile();
+                defaultFile(null);
                 textView.postDelayed(() -> editClicked(null), sharedConstants.UPDATE_DELAY);
             }
             break;
@@ -251,7 +252,7 @@ public class Editor extends Activity
                     lastFile();
 
                 else
-                    defaultFile();
+                    defaultFile(null);
             }
             break;
         }
@@ -294,10 +295,7 @@ public class Editor extends Activity
 
                 // beforeTextChanged
                 @Override
-                public void beforeTextChanged(CharSequence s,
-                                              int start,
-                                              int count,
-                                              int after)
+                public void beforeTextChanged(CharSequence s, int start,int count,int after)
                 {
                     if (searchItem != null &&
                         searchItem.isActionViewExpanded())
@@ -318,10 +316,7 @@ public class Editor extends Activity
 
                 // onTextChanged
                 @Override
-                public void onTextChanged(CharSequence s,
-                                          int start,
-                                          int before,
-                                          int count) {}
+                public void onTextChanged(CharSequence s,int start,int before,int count) {}
             });
 
             // onFocusChange
@@ -994,77 +989,33 @@ public class Editor extends Activity
     private void newFile()
     {
         // Check if file changed
-        if (sharedVariables.changed)
+        if (sharedVariables.changed) {
             alertDialog(this, R.string.newFile, R.string.modified,
-                        R.string.save, R.string.discard, (dialog, id) ->
-        {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                saveFileHandler();
-                newFile(null);
-                break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-                newFile(null);
-                break;
-            }
-
-            invalidateOptionsMenu();
-        });
-
-        else
-            newFile(null);
-
+                    R.string.save, R.string.discard, (dialog, id) ->
+                    {
+                        if(id == DialogInterface.BUTTON_POSITIVE){
+                            saveFileHandler();
+                        }
+                    });
+        }
+        defaultFile(null);
         invalidateOptionsMenu();
     }
 
-    // newFile
-    private void newFile(String text)
+    // defaultFile
+    private void defaultFile(String text)
     {
         textView.setText("");
         sharedVariables.changed = false;
 
-        file = getNewFile();
+        file = fileHandler.getNewFile();
         uri = Uri.fromFile(file);
         path = uri.getPath();
         content = null;
 
-        if (text != null)
+        if (text != null){
             textView.append(text);
-
-        setTitle(uri.getLastPathSegment());
-        sharedVariables.match = sharedConstants.UTF_8;
-        getActionBar().setSubtitle(sharedVariables.match);
-    }
-
-    // getNewFile
-    private static File getNewFile()
-    {
-        File documents = new
-            File(Environment.getExternalStorageDirectory(), sharedConstants.DOCUMENTS);
-        return new File(documents, sharedConstants.NEW_FILE);
-    }
-
-    // getDefaultFile
-    private static File getDefaultFile()
-    {
-        File documents = new
-            File(Environment.getExternalStorageDirectory(), sharedConstants.DOCUMENTS);
-        return new File(documents, sharedConstants.EDIT_FILE);
-    }
-
-    // defaultFile
-    private void defaultFile()
-    {
-        file = getDefaultFile();
-        uri = Uri.fromFile(file);
-        path = uri.getPath();
-        content = null;
-
-        if (file.exists())
-            readFile(uri);
-
+        }
         else
         {
             setTitle(uri.getLastPathSegment());
@@ -1080,7 +1031,7 @@ public class Editor extends Activity
 
         if (path.isEmpty())
         {
-            defaultFile();
+            defaultFile(null);
             return;
         }
 
@@ -1282,7 +1233,7 @@ public class Editor extends Activity
 
                 // Check uri
                 uri = Uri.fromFile(file);
-                Uri newUri = Uri.fromFile(getNewFile());
+                Uri newUri = Uri.fromFile(fileHandler.getNewFile());
                 if (newUri.getPath().equals(uri.getPath()))
                 {
                     saveAs();
@@ -1814,9 +1765,7 @@ public class Editor extends Activity
 
     // onRequestPermissionsResult
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String[] permissions,
-                                           int[] grantResults)
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,int[] grantResults)
     {
         switch (requestCode)
         {
@@ -1849,86 +1798,40 @@ public class Editor extends Activity
         }
     }
 
-    // readFile
-    private void readFile(Uri uri)
-    {
-        if (uri == null)
-            return;
+    private void readFile(Uri uri) {
+        if (uri == null) return;
 
-        if(!checkPermissions(sharedConstants.REQUEST_READ)){
+        if (!checkPermissions(sharedConstants.REQUEST_READ)) {
             this.uri = uri;
             return;
         }
 
-
-
-        long size = 0;
-        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme()))
-            size = FileUtils.getSize(this, uri, null, null);
-
-        else
-        {
-            File file = new File(uri.getPath());
-            size = file.length();
-        }
-
-        if (BuildConfig.DEBUG)
-            Log.d(sharedConstants.TAG, "Size " + size);
-
-        if (size > sharedConstants.TOO_LARGE)
-        {
-            String large = getString(R.string.tooLarge);
-            large = String.format(large, FileUtils.getReadableFileSize(size));
-            alertDialog(this, R.string.appName, large, R.string.ok);
+        if(!checkFileSize(uri)){
             return;
         }
 
-        // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
-        textView.removeCallbacks(updateWordCount);
 
-        if (BuildConfig.DEBUG)
-            Log.d(sharedConstants.TAG, "Uri: " + uri);
+        removeTextViewCallbacks();
 
-        // Attempt to resolve content uri
-        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme()))
-        {
-            content = uri;
-            uri = resolveContent(uri);
-        }
+        if (BuildConfig.DEBUG) Log.d(sharedConstants.TAG, "Uri: " + uri);
 
-        else
-            content = null;
+        content = resolveOrSetContentUri(uri);
 
-        if (BuildConfig.DEBUG)
-            Log.d(sharedConstants.TAG, "Uri: " + uri);
-
-        // Read into new file if unresolved
-        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme()))
-        {
-            file = getNewFile();
-            Uri defaultUri = Uri.fromFile(file);
-            path = defaultUri.getPath();
-
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
-        }
-
-        // Read file
-        else
-        {
-            this.uri = uri;
-            path = uri.getPath();
-            file = new File(path);
-
-            setTitle(uri.getLastPathSegment());
+        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
+            prepareNewFileForReading();
+        } else {
+            prepareExistingFile(uri);
         }
 
         textView.setText(R.string.loading);
 
-        ReadTask read = new ReadTask(this);
-        read.execute(uri);
-
-
+        try {
+            CharSequence fileContent = fileHandler.readFileFromUri(this, uri);
+            displayText(fileContent);
+        } catch (Exception e) {
+            Log.e(sharedConstants.TAG, "Error reading file: " + e.getMessage(), e);
+            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
+        }
 
         sharedVariables.changed = false;
         sharedVariables.modified = file.lastModified();
@@ -1936,89 +1839,191 @@ public class Editor extends Activity
         invalidateOptionsMenu();
     }
 
-    // resolveContent
-    private Uri resolveContent(Uri uri)
-    {
-        String path = FileUtils.getPath(this, uri);
+    private boolean checkFileSize(Uri uri) {
+        long size = sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())
+                ? FileUtils.getSize(this, uri, null, null)
+                : new File(uri.getPath()).length();
 
-        if (path != null)
-        {
-            File file = new File(path);
-            if (file.canRead())
-                uri = Uri.fromFile(file);
+        if (BuildConfig.DEBUG) Log.d(sharedConstants.TAG, "Size: " + size);
+
+        if (size > sharedConstants.TOO_LARGE) {
+            showFileTooLargeAlert(size);
+            return false;
         }
+        return true;
+    }
 
+    private void showFileTooLargeAlert(long size) {
+        String large = getString(R.string.tooLarge);
+        alertDialog(this, R.string.appName,
+                String.format(large, FileUtils.getReadableFileSize(size)),
+                R.string.ok);
+    }
+
+    private void removeTextViewCallbacks() {
+        textView.removeCallbacks(updateHighlight);
+        textView.removeCallbacks(updateWordCount);
+    }
+
+    private Uri resolveOrSetContentUri(Uri uri) {
+        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
+            content = uri;
+            return resolveContent(uri);
+        } else {
+            content = null;
+            return uri;
+        }
+    }
+
+    private void prepareNewFileForReading() {
+        file = fileHandler.getNewFile();
+        path = Uri.fromFile(file).getPath();
+        setTitle(FileUtils.getDisplayName(this, content, null, null));
+    }
+
+    private void prepareExistingFile(Uri uri) {
+        this.uri = uri;
+        path = uri.getPath();
+        file = new File(path);
+        setTitle(uri.getLastPathSegment());
+    }
+
+    private Uri resolveContent(Uri uri) {
+        String path = FileUtils.getPath(this, uri);
+        if (path != null) {
+            File file = new File(path);
+            if (file.canRead()) uri = Uri.fromFile(file);
+        }
         return uri;
     }
-
-    // saveCheck
-    private void saveCheck()
+    public void displayText(CharSequence text)
     {
-        Uri uri = Uri.fromFile(file);
-        Uri newUri = Uri.fromFile(getNewFile());
-        if (content == null && newUri.getPath().equals(uri.getPath()))
-            saveAs();
+        if (textView != null)
+            textView.setText(text);
+
+        sharedVariables.changed = false;
+
+        // Check for saved position
+        if (pathMap.containsKey(path))
+            textView.postDelayed(() ->
+                            scrollView.smoothScrollTo
+                                    (0, pathMap.get(path)),
+                    sharedConstants.POSITION_DELAY);
+        else
+            textView.postDelayed(() ->
+                            scrollView.smoothScrollTo(0, 0),
+                    sharedConstants.POSITION_DELAY);
+        // Check mode
+        checkMode(text);
+
+        // Check highlighting
+        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
+
+        // Set read only
+        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
+        {
+            textView.setRawInputType(InputType.TYPE_NULL);
+            textView.setTextIsSelectable(true);
+
+            // Update boolean
+            edit = false;
+        }
 
         else
-            saveFileHandler();
+        {
+            // Set editable with or without suggestions
+            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
+                textView.setInputType(InputType.TYPE_CLASS_TEXT |
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+            else
+                textView.setInputType(InputType.TYPE_CLASS_TEXT |
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE |
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            // Update boolean
+            edit = true;
+        }
+
+        // Dismiss keyboard
+        textView.clearFocus();
+
+        // Update menu
+        invalidateOptionsMenu();
     }
 
-    private void saveFileHandler()
-    {
-        if(checkPermissions(sharedConstants.REQUEST_SAVE)){
+
+    // saveCheck
+    private void saveCheck() {
+        Uri currentUri = Uri.fromFile(file);
+        Uri newFileUri = Uri.fromFile(fileHandler.getNewFile());
+
+        if (content == null && newFileUri.getPath().equals(currentUri.getPath())) {
+            saveAs();
+        } else {
+            saveFileHandler();
+        }
+    }
+
+    private void saveFileHandler() {
+        if (!checkPermissions(sharedConstants.REQUEST_SAVE)) {
             return;
         }
 
-        // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
-        textView.removeCallbacks(updateWordCount);
+        removeTextViewCallbacks();
 
         if (file.lastModified() > sharedVariables.modified) {
-            alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) ->
-            {
-                if (id == DialogInterface.BUTTON_POSITIVE) {
-                    saveFile(file);
-                }
-            });
+            promptOverwrite();
+        } else {
+            saveFile(content != null ? content : file);
         }
-        else
-        {
-            if (content == null)
+    }
+    private void promptOverwrite() {
+        alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
+            if (id == DialogInterface.BUTTON_POSITIVE) {
                 saveFile(file);
+            }
+        });
+    }
 
-            else
-                saveFile(content);
+    private void saveFile(Object input) {
+        CharSequence textContent = textView.getText();
+        try {
+            String charset = resolveCharset();
+
+            if (input instanceof Uri) {
+                writeToUri((Uri) input, textContent, charset);
+            } else if (input instanceof File) {
+                writeToFile((File) input, textContent, charset);
+            } else {
+                throw new IllegalArgumentException("Unsupported input type. Expected Uri or File.");
+            }
+        } catch (Exception e) {
+            handleSaveError(e);
+        }
+
+        invalidateOptionsMenu();
+    }
+
+    private String resolveCharset() {
+        if (sharedVariables.match != null && !sharedVariables.match.equals(getString(R.string.detect))) {
+            return sharedVariables.match;
+        }
+        return sharedConstants.UTF_8;
+    }
+
+    private void writeToUri(Uri uri, CharSequence textContent, String charset) throws IOException {
+        try (OutputStream outputStream = getContentResolver().openOutputStream(uri, "rwt")) {
+            fileHandler.writeToOutputStream(textContent, outputStream, charset);
         }
     }
 
-    private void saveFile(Object input)
-    {
-        CharSequence text = textView.getText();
-        try
-        {
-            String charset = sharedConstants.UTF_8;
+    private void writeToFile(File file, CharSequence textContent, String charset) throws IOException {
+        fileHandler.writeToFile(textContent, file, charset);
+        savePath(file.getPath());
+    }
 
-            if (sharedVariables.match != null && !sharedVariables.match.equals(getString(R.string.detect))){
-                charset = sharedVariables.match;
-            }
-
-            if(input instanceof Uri){
-                OutputStream outputStream = getContentResolver().openOutputStream(uri, "rwt");
-                fileHandler.writeToOutputStream(text,outputStream,charset);
-            }else if (input instanceof File){
-                fileHandler.writeToFile(text,file,charset);
-                savePath(file.getPath());
-            }else{
-                throw new Exception("Input was neither of type OutputStream or File");
-            }
-        }
-
-        catch (Exception e)
-        {
-            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
-            e.printStackTrace();
-        }
-        invalidateOptionsMenu();
+    private void handleSaveError(Exception e) {
+        alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
+        e.printStackTrace();
     }
 
     // onActionModeStarted
@@ -2281,60 +2286,6 @@ public class Editor extends Activity
             recreate(this);
     }
 
-    // loadText
-    public void loadText(CharSequence text)
-    {
-        if (textView != null)
-            textView.setText(text);
-
-        sharedVariables.changed = false;
-
-        // Check for saved position
-        if (pathMap.containsKey(path))
-            textView.postDelayed(() ->
-                                 scrollView.smoothScrollTo
-                                 (0, pathMap.get(path)),
-                    sharedConstants.POSITION_DELAY);
-        else
-            textView.postDelayed(() ->
-                                 scrollView.smoothScrollTo(0, 0),
-                    sharedConstants.POSITION_DELAY);
-        // Check mode
-        checkMode(text);
-
-        // Check highlighting
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView,updateHighlight);
-
-        // Set read only
-        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
-        {
-            textView.setRawInputType(InputType.TYPE_NULL);
-            textView.setTextIsSelectable(true);
-
-            // Update boolean
-            edit = false;
-        }
-
-        else
-        {
-            // Set editable with or without suggestions
-            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
-                textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-            else
-                textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                      InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-            // Update boolean
-            edit = true;
-        }
-
-        // Dismiss keyboard
-        textView.clearFocus();
-
-        // Update menu
-        invalidateOptionsMenu();
-    }
 
     // FindTask
     private static class FindTask
