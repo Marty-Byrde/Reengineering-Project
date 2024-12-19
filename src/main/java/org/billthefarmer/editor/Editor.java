@@ -23,7 +23,6 @@
 
 package org.billthefarmer.editor;
 
-import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
 import static org.billthefarmer.editor.SyntaxPatternParameters.*;
 import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
 
@@ -36,7 +35,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -52,12 +50,10 @@ import android.text.Editable;
 import android.text.Html;
 import android.text.InputType;
 import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
-import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.KeyEvent;
@@ -86,7 +82,9 @@ import android.widget.TextView;
 import org.billthefarmer.editor.editorSubClasses.QueryTextListener;
 import org.billthefarmer.editor.editorSubClasses.ReadTask;
 import org.billthefarmer.editor.editorSubClasses.ScaleListener;
-import org.billthefarmer.editor.utils.EditorTextUtils;
+import org.billthefarmer.editor.fileHandler.FileHandler;
+import org.billthefarmer.editor.fileHandler.IFileHandler;
+import org.billthefarmer.editor.editorTextUtils.EditorTextUtils;
 import org.billthefarmer.editor.utils.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.values.SharedVariables;
@@ -107,7 +105,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -142,9 +139,10 @@ public class Editor extends Activity
 
     private Map<Preferences, Object> editorPreferences;
 
-    private static FileHandler fileHandler;
+    private static IFileHandler fileHandler;
     private static SharedConstants sharedConstants;
     private static SharedVariables sharedVariables;
+    private static EditorTextUtils editorTextUtils;
 
     // onCreate
     @Override
@@ -155,12 +153,11 @@ public class Editor extends Activity
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
-        //Get Filehandler Singelton
+        //Get Singeltons
         fileHandler = FileHandler.getInstance();
-        //Get SharedConstants Singelton
         sharedConstants = SharedConstants.getInstance();
-        //Get SharedVariables Singelton
         sharedVariables = SharedVariables.getInstance();
+        editorTextUtils = EditorTextUtils.getInstance();
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
@@ -188,7 +185,7 @@ public class Editor extends Activity
         getActionBar().setDisplayShowCustomEnabled(true);
         customView = (TextView) getActionBar().getCustomView();
 
-        updateWordCount = () -> EditorTextUtils.wordCountText(textView,customView);
+        updateWordCount = () -> editorTextUtils.wordCountText(textView,customView);
 
         if (savedInstanceState != null)
             edit = savedInstanceState.getBoolean(sharedConstants.EDIT);
@@ -436,7 +433,7 @@ public class Editor extends Activity
             sharedVariables.match = sharedConstants.UTF_8;
         getActionBar().setSubtitle(sharedVariables.match);
 
-        EditorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
 
         if (file.lastModified() > sharedVariables.modified)
             alertDialog(this, R.string.appName, R.string.changedReload,
@@ -1574,7 +1571,7 @@ public class Editor extends Activity
         editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
-        EditorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
     }
 
     private void themeClicked(MenuItem item,int selectedTheme)
@@ -2148,7 +2145,7 @@ public class Editor extends Activity
                         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
                             editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            EditorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+                            editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
                         }
                     }
 
@@ -2307,7 +2304,7 @@ public class Editor extends Activity
         checkMode(text);
 
         // Check highlighting
-        EditorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
+        editorTextUtils.checkHighlight(syntax,editorPreferences,file,textView,scrollView,updateHighlight);
 
         // Set read only
         if ((boolean) editorPreferences.get(Preferences.isReadOnly))

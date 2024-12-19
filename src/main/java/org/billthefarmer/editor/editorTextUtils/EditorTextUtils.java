@@ -1,4 +1,4 @@
-package org.billthefarmer.editor.utils;
+package org.billthefarmer.editor.editorTextUtils;
 
 import android.graphics.Color;
 import android.text.Editable;
@@ -9,6 +9,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.billthefarmer.editor.preferences.Preferences;
+import org.billthefarmer.editor.utils.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 
 import java.io.File;
@@ -16,49 +17,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 
-import static org.billthefarmer.editor.SyntaxPatternParameters.ANNOTATION;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CC_COMMENT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CC_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CC_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CLASS;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CONSTANT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CSS_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CSS_HEX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CSS_STYLES;
-import static org.billthefarmer.editor.SyntaxPatternParameters.CSS_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.DEF_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.HTML_ATTRS;
-import static org.billthefarmer.editor.SyntaxPatternParameters.HTML_COMMENT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.HTML_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.HTML_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.HTML_TAGS;
-import static org.billthefarmer.editor.SyntaxPatternParameters.KEYWORDS;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_CODE;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_EMPH;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_HEADER;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_LINK;
-import static org.billthefarmer.editor.SyntaxPatternParameters.MD_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.NO_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.NUMBER;
-import static org.billthefarmer.editor.SyntaxPatternParameters.OPERATOR;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_COMMENT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_EMPH;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_HEADER;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_LINK;
-import static org.billthefarmer.editor.SyntaxPatternParameters.ORG_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.QUOTED;
-import static org.billthefarmer.editor.SyntaxPatternParameters.SH_COMMENT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.SH_EXT;
-import static org.billthefarmer.editor.SyntaxPatternParameters.SH_SYNTAX;
-import static org.billthefarmer.editor.SyntaxPatternParameters.SH_VAR;
-import static org.billthefarmer.editor.SyntaxPatternParameters.TYPES;
-import static org.billthefarmer.editor.SyntaxPatternParameters.WORD_PATTERN;
+import static org.billthefarmer.editor.SyntaxPatternParameters.*;
 
-public class EditorTextUtils {
-
-    public static void wordCountText(TextView textView,TextView customView)
+public class EditorTextUtils implements IEditorTextUtils{
+    private static EditorTextUtils instance;
+    private EditorTextUtils(){
+    }
+    public static synchronized EditorTextUtils getInstance() {
+        if (instance == null) {
+            instance = new EditorTextUtils();
+        }
+        return instance;
+    }
+    public void wordCountText(TextView textView,TextView customView)
     {
         int words = 0;
         Matcher matcher = WORD_PATTERN.matcher(textView.getText());
@@ -74,7 +45,7 @@ public class EditorTextUtils {
         }
     }
 
-    public static void checkHighlight(int syntax, Map editorPreferences, File file,EditText textView,ScrollView scrollView, Runnable updateHighlight)
+    public void checkHighlight(int syntax, Map editorPreferences, File file,EditText textView,ScrollView scrollView, Runnable updateHighlight)
     {
         // No syntax
         syntax = NO_SYNTAX;
@@ -137,7 +108,7 @@ public class EditorTextUtils {
         }
     }
 
-    public static void highlightText(ScrollView scrollView, EditText textView, int syntax)
+    public void highlightText(ScrollView scrollView, EditText textView, int syntax)
     {
         // Get visible extent
         int top = scrollView.getScrollY();

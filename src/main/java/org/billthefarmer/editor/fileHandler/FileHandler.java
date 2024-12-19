@@ -1,13 +1,5 @@
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.fileHandler;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.net.Uri;
-import android.os.Build;
-import android.util.Log;
-
-import org.billthefarmer.editor.editorSubClasses.ReadTask;
-import org.billthefarmer.editor.utils.FileUtils;
 import org.billthefarmer.editor.values.SharedVariables;
 
 import java.io.BufferedInputStream;
@@ -22,7 +14,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 
 
-public class FileHandler {
+public class FileHandler implements IFileHandler {
     private static FileHandler instance;
     private static SharedVariables sharedVariables;
 
