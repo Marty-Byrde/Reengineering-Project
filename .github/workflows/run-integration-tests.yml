@@ -1,11 +1,11 @@
 # Build on push and PR events
-on:
-  push:
-    branches:
-      - master
-    tags-ignore:
-      - '*'
-  pull_request:
+#on:
+#  push:
+#    branches:
+#      - master
+#    tags-ignore:
+#      - '*'
+#  pull_request:
 
 jobs:
   run-integration-tests:
