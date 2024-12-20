@@ -51,7 +51,7 @@ jobs:
         with:
           api-level: 33
           force-avd-creation: false
-          target: google_apis
+          target: default
           arch: x86_64
           script: ./gradlew connectedCheck
           ram-size: 4096M
