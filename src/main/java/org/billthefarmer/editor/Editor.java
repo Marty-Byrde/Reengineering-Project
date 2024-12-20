@@ -114,10 +114,12 @@ import java.util.regex.Pattern;
 
 public class Editor extends Activity
 {
+    /*
     private Uri uri;
     private File file;
     private String path;
     private Uri content;
+     */
     private EditText textView;
     private TextView customView;
     private MenuItem searchItem;
@@ -401,36 +403,36 @@ public class Editor extends Activity
     {
         super.onRestoreInstanceState(savedInstanceState);
 
-        path = savedInstanceState.getString(sharedConstants.PATH);
+        sharedVariables.fileWrapper.path = savedInstanceState.getString(sharedConstants.PATH);
         edit = savedInstanceState.getBoolean(sharedConstants.EDIT);
         sharedVariables.changed = savedInstanceState.getBoolean(sharedConstants.CHANGED);
         sharedVariables.match = savedInstanceState.getString(sharedConstants.MATCH);
         sharedVariables.modified = savedInstanceState.getLong(sharedConstants.MODIFIED);
-        content = savedInstanceState.getParcelable(sharedConstants.CONTENT);
+        sharedVariables.fileWrapper.content = savedInstanceState.getParcelable(sharedConstants.CONTENT);
         invalidateOptionsMenu();
 
-        file = new File(path);
-        uri = Uri.fromFile(file);
+        sharedVariables.fileWrapper.file = new File(sharedVariables.fileWrapper.path);
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
 
-        if (content != null)
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
+        if (sharedVariables.fileWrapper.content != null)
+            setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
 
         else
-            setTitle(uri.getLastPathSegment());
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
 
         if (sharedVariables.match == null)
             sharedVariables.match = sharedConstants.UTF_8;
         getActionBar().setSubtitle(sharedVariables.match);
 
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
 
-        if (file.lastModified() > sharedVariables.modified)
+        if (sharedVariables.fileWrapper.file.lastModified() > sharedVariables.modified)
             alertDialog(this, R.string.appName, R.string.changedReload,
                         R.string.reload, R.string.cancel, (dialog, id) ->
         {
             if(id == DialogInterface.BUTTON_POSITIVE)
             {
-                readFile(uri);
+                readFile(sharedVariables.fileWrapper.uri);
             }
         });
     }
@@ -440,7 +442,7 @@ public class Editor extends Activity
     public void onPause() {
         super.onPause();
 
-        savePath(path);
+        savePath(sharedVariables.fileWrapper.path);
         removeTextViewCallbacks();
 
         savePreferences();
@@ -471,7 +473,7 @@ public class Editor extends Activity
         editor.putInt(PREF_THEME, getPreferenceInt(Preferences.Theme));
         editor.putInt(PREF_SIZE, getPreferenceInt(Preferences.FontSize));
         editor.putInt(PREF_TYPE, getPreferenceInt(Preferences.FontType));
-        editor.putString(PREF_FILE, path);
+        editor.putString(PREF_FILE, sharedVariables.fileWrapper.path);
     }
     private void saveRecentPaths(SharedPreferences.Editor editor) {
         editor.putStringSet(PREF_PATHS, pathMap.keySet());
@@ -501,12 +503,12 @@ public class Editor extends Activity
         super.onSaveInstanceState(outState);
 
 
-        outState.putParcelable(sharedConstants.CONTENT, content);
+        outState.putParcelable(sharedConstants.CONTENT, sharedVariables.fileWrapper.content);
         outState.putLong(sharedConstants.MODIFIED, sharedVariables.modified);
         outState.putBoolean(sharedConstants.CHANGED, sharedVariables.changed);
         outState.putString(sharedConstants.MATCH, sharedVariables.match);
         outState.putBoolean(sharedConstants.EDIT, edit);
-        outState.putString(sharedConstants.PATH, path);
+        outState.putString(sharedConstants.PATH, sharedVariables.fileWrapper.path);
     }
 
     // onCreateOptionsMenu
@@ -819,13 +821,13 @@ public class Editor extends Activity
         switch (requestCode)
         {
         case 1:
-            content = data.getData();
-            readFile(content);
+            sharedVariables.fileWrapper.content = data.getData();
+            readFile(sharedVariables.fileWrapper.content);
             break;
 
         case 2:
-            content = data.getData();
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
+            sharedVariables.fileWrapper.content = data.getData();
+            setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
             saveFileHandler();
             break;
         default:
@@ -1010,17 +1012,17 @@ public class Editor extends Activity
         textView.setText("");
         sharedVariables.changed = false;
 
-        file = fileHandler.getNewFile();
-        uri = Uri.fromFile(file);
-        path = uri.getPath();
-        content = null;
+        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.uri.getPath();
+        sharedVariables.fileWrapper.content = null;
 
         if (text != null){
             textView.append(text);
         }
         else
         {
-            setTitle(uri.getLastPathSegment());
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
             sharedVariables.match = sharedConstants.UTF_8;
             getActionBar().setSubtitle(sharedVariables.match);
         }
@@ -1037,16 +1039,16 @@ public class Editor extends Activity
             return;
         }
 
-        file = new File(lastFilePath);
-        uri = Uri.fromFile(file);
-        lastFilePath = uri.getPath();
+        sharedVariables.fileWrapper.file = new File(lastFilePath);
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        lastFilePath = sharedVariables.fileWrapper.uri.getPath();
 
-        if (file.exists())
-            readFile(uri);
+        if (sharedVariables.fileWrapper.file.exists())
+            readFile(sharedVariables.fileWrapper.uri);
 
         else
         {
-            setTitle(uri.getLastPathSegment());
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
             sharedVariables.match = sharedConstants.UTF_8;
             getActionBar().setSubtitle(sharedVariables.match);
         }
@@ -1205,7 +1207,7 @@ public class Editor extends Activity
     {
         // Remove path prefix
         String name =
-            path.replaceFirst(Environment
+                sharedVariables.fileWrapper.path.replaceFirst(Environment
                               .getExternalStorageDirectory()
                               .getPath() + File.separator, "");
         // Open dialog
@@ -1221,31 +1223,31 @@ public class Editor extends Activity
                 if (string.isEmpty())
                     return;
 
-                file = new File(string);
+                sharedVariables.fileWrapper.file = new File(string);
 
                 // Check absolute file
-                if (!file.isAbsolute())
-                    file = new
+                if (!sharedVariables.fileWrapper.file.isAbsolute())
+                    sharedVariables.fileWrapper.file = new
                         File(Environment.getExternalStorageDirectory(), string);
 
                 // Check uri
-                uri = Uri.fromFile(file);
+                sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
                 Uri newUri = Uri.fromFile(fileHandler.getNewFile());
-                if (newUri.getPath().equals(uri.getPath()))
+                if (newUri.getPath().equals(sharedVariables.fileWrapper.uri.getPath()))
                 {
                     saveAs();
                     return;
                 }
 
                 // Check exists
-                if (file.exists())
+                if (sharedVariables.fileWrapper.file.exists())
                     alertDialog(this, R.string.appName,
                                 R.string.changedOverwrite,
                                 R.string.overwrite, R.string.cancel, (d, b) ->
                     {
                         if (b == DialogInterface.BUTTON_POSITIVE) {// Set interface title
-                            setTitle(uri.getLastPathSegment());
-                            path = file.getPath();
+                            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+                            sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
                             saveFileHandler();
                         }
                     });
@@ -1253,9 +1255,9 @@ public class Editor extends Activity
                 else
                 {
                     // Set interface title
-                    setTitle(uri.getLastPathSegment());
-                    path = file.getPath();
-                    content = null;
+                    setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+                    sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
+                    sharedVariables.fileWrapper.content = null;
                     saveFileHandler();
                 }
                 break;
@@ -1264,7 +1266,7 @@ public class Editor extends Activity
                 Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                 intent.setType(sharedConstants.TEXT_WILD);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.putExtra(Intent.EXTRA_TITLE, uri.getLastPathSegment());
+                intent.putExtra(Intent.EXTRA_TITLE, sharedVariables.fileWrapper.uri.getLastPathSegment());
                 startActivityForResult(intent, sharedConstants.CREATE_DOCUMENT);
                 break;
             default:
@@ -1516,7 +1518,7 @@ public class Editor extends Activity
         editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
     }
 
     private void themeClicked(MenuItem item,int selectedTheme)
@@ -1614,7 +1616,7 @@ public class Editor extends Activity
         }
 
         // Open parent folder
-        File dir = file.getParentFile();
+        File dir = sharedVariables.fileWrapper.file.getParentFile();
         getFile(dir);
     }
 
@@ -1773,7 +1775,7 @@ public class Editor extends Activity
                                           .READ_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, read file
-                    readFile(uri);
+                    readFile(sharedVariables.fileWrapper.uri);
             break;
 
         case 3:
@@ -1793,7 +1795,7 @@ public class Editor extends Activity
         if (uri == null) return;
 
         if (!checkPermissions(sharedConstants.REQUEST_READ)) {
-            this.uri = uri;
+            this.sharedVariables.fileWrapper.uri = uri;
             return;
         }
 
@@ -1806,7 +1808,7 @@ public class Editor extends Activity
 
         if (BuildConfig.DEBUG) Log.d(sharedConstants.TAG, "Uri: " + uri);
 
-        content = resolveOrSetContentUri(uri);
+        sharedVariables.fileWrapper.content = resolveOrSetContentUri(uri);
 
         if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
             prepareNewFileForReading();
@@ -1825,8 +1827,8 @@ public class Editor extends Activity
         }
 
         sharedVariables.changed = false;
-        sharedVariables.modified = file.lastModified();
-        savePath(path);
+        sharedVariables.modified = sharedVariables.fileWrapper.file.lastModified();
+        savePath(sharedVariables.fileWrapper.path);
         invalidateOptionsMenu();
     }
 
@@ -1858,24 +1860,24 @@ public class Editor extends Activity
 
     private Uri resolveOrSetContentUri(Uri uri) {
         if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
-            content = uri;
+            sharedVariables.fileWrapper.content = uri;
             return resolveContent(uri);
         } else {
-            content = null;
+            sharedVariables.fileWrapper.content = null;
             return uri;
         }
     }
 
     private void prepareNewFileForReading() {
-        file = fileHandler.getNewFile();
-        path = Uri.fromFile(file).getPath();
-        setTitle(FileUtils.getDisplayName(this, content, null, null));
+        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
+        sharedVariables.fileWrapper.path = Uri.fromFile(sharedVariables.fileWrapper.file).getPath();
+        setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
     }
 
     private void prepareExistingFile(Uri uri) {
-        this.uri = uri;
-        path = uri.getPath();
-        file = new File(path);
+        sharedVariables.fileWrapper.uri = uri;
+        sharedVariables.fileWrapper.path = uri.getPath();
+        sharedVariables.fileWrapper.file = new File(sharedVariables.fileWrapper.path);
         setTitle(uri.getLastPathSegment());
     }
 
@@ -1895,10 +1897,10 @@ public class Editor extends Activity
         sharedVariables.changed = false;
 
         // Check for saved position
-        if (pathMap.containsKey(path))
+        if (pathMap.containsKey(sharedVariables.fileWrapper.path))
             textView.postDelayed(() ->
                             scrollView.smoothScrollTo
-                                    (0, pathMap.get(path)),
+                                    (0, pathMap.get(sharedVariables.fileWrapper.path)),
                     sharedConstants.POSITION_DELAY);
         else
             textView.postDelayed(() ->
@@ -1908,7 +1910,7 @@ public class Editor extends Activity
         checkMode(text);
 
         // Check highlighting
-        editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
 
         // Set read only
         if ((boolean) editorPreferences.get(Preferences.isReadOnly))
@@ -1948,26 +1950,26 @@ public class Editor extends Activity
             return;
         }
 
-        Uri currentUri = Uri.fromFile(file);
+        Uri currentUri = Uri.fromFile(sharedVariables.fileWrapper.file);
         Uri newFileUri = Uri.fromFile(fileHandler.getNewFile());
 
-        if (content == null && newFileUri.getPath().equals(currentUri.getPath())) {
+        if (sharedVariables.fileWrapper.content == null && newFileUri.getPath().equals(currentUri.getPath())) {
             saveAs();
         } else {
                 removeTextViewCallbacks();
 
-            if (file.lastModified() > sharedVariables.modified) {
+            if (sharedVariables.fileWrapper.file.lastModified() > sharedVariables.modified) {
                 promptOverwrite();
                 sharedVariables.changed = false;
             } else {
-                saveFile(content != null ? content : file);
+                saveFile(sharedVariables.fileWrapper.content != null ? sharedVariables.fileWrapper.content : sharedVariables.fileWrapper.file);
             }
         }
     }
     private void promptOverwrite() {
         alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
             if (id == DialogInterface.BUTTON_POSITIVE) {
-                saveFile(file);
+                saveFile(sharedVariables.fileWrapper.file);
             }
         });
     }
@@ -2020,10 +2022,10 @@ public class Editor extends Activity
         super.onActionModeStarted(mode);
 
         // If there's a file
-        if (file != null)
+        if (sharedVariables.fileWrapper.file != null)
         {
             // Get the mime type
-            String mimeType = FileUtils.getMimeType(file);
+            String mimeType = FileUtils.getMimeType(sharedVariables.fileWrapper.file);
             // If the type is not text/plain
             if (!sharedConstants.TEXT_PLAIN.equals(mimeType))
             {
@@ -2138,7 +2140,7 @@ public class Editor extends Activity
                         if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
                         {
                             editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            editorTextUtils.checkHighlight(editorPreferences,file,textView,scrollView);
+                            editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
                         }
                     }
 

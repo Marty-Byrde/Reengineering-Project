@@ -15,10 +15,11 @@ public class SharedVariables {
 
     public Context appContext;
 
+    public FileWrapper fileWrapper;
 
     private static SharedVariables instance;
     private SharedVariables(){
-
+        fileWrapper = FileWrapper.getInstance();
     }
 
     public static synchronized SharedVariables getInstance() {
