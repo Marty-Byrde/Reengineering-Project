@@ -440,7 +440,7 @@ public class Editor extends Activity
 
         // Save file if needed
         if (sharedVariables.changed && getPreferenceBoolean(Preferences.autoSaveFeature)) {
-            saveFileHandler();
+            saveFile();
         }
     }
 
@@ -684,10 +684,10 @@ public class Editor extends Activity
             optionOpenFile();
             break;
         case R.id.save:
-            saveFileHandler();
+            saveFile();
             break;
         case R.id.saveAs:
-            saveAs();
+            optionSaveAs();
             break;
         case R.id.clearList:
             optionClearList();
@@ -753,7 +753,7 @@ public class Editor extends Activity
             optionAbout();
             break;
         case R.id.fileItem:
-            openRecent(item);
+            optionOpenRecent(item);
             break;
         case R.id.charsetItem:
             optionSetCharset(item);
@@ -809,7 +809,7 @@ public class Editor extends Activity
         case 2:
             sharedVariables.fileWrapper.content = data.getData();
             setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
-            saveFileHandler();
+            saveFile();
             break;
         default:
             break;
@@ -875,9 +875,9 @@ public class Editor extends Activity
                 // Save, Save as
             case KeyEvent.KEYCODE_S:
                 if (event.isShiftPressed())
-                    saveAs();
+                    optionSaveAs();
                 else
-                    saveFileHandler();
+                    saveFile();
                 break;
                 // Increase text size
             case KeyEvent.KEYCODE_EQUALS,KeyEvent.KEYCODE_PLUS:
@@ -922,6 +922,10 @@ public class Editor extends Activity
         }
     }
 
+
+    ///--------------///
+    /// MENU OPTIONS ///
+    ///--------------///
     // editClicked
     private void optionEdit(MenuItem item)
     {
@@ -981,54 +985,6 @@ public class Editor extends Activity
         invalidateOptionsMenu();
     }
 
-    // defaultFile
-    private void defaultFile(String text)
-    {
-        textView.setText("");
-        sharedVariables.changed = false;
-
-        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
-        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
-        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.uri.getPath();
-        sharedVariables.fileWrapper.content = null;
-
-        if (text != null){
-            textView.append(text);
-        }
-        else
-        {
-            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
-            sharedVariables.match = sharedConstants.UTF_8;
-            getActionBar().setSubtitle(sharedVariables.match);
-        }
-    }
-
-    // lastFile
-    private void lastFile()
-    {
-        String lastFilePath = (String) editorPreferences.get(Preferences.File);
-
-        if (lastFilePath.isEmpty())
-        {
-            defaultFile(null);
-            return;
-        }
-
-        sharedVariables.fileWrapper.file = new File(lastFilePath);
-        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
-        lastFilePath = sharedVariables.fileWrapper.uri.getPath();
-
-        if (sharedVariables.fileWrapper.file.exists())
-            loadFile(sharedVariables.fileWrapper.uri);
-
-        else
-        {
-            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
-            sharedVariables.match = sharedConstants.UTF_8;
-            getActionBar().setSubtitle(sharedVariables.match);
-        }
-    }
-
     // setCharset
     private void optionSetCharset(MenuItem item)
     {
@@ -1048,61 +1004,8 @@ public class Editor extends Activity
         type = list.indexOf(name);
     }
 
-
-
-
-    // savePath
-    private void savePath(String path)
-    {
-        if (path == null)
-            return;
-
-        // Save the current position
-        pathMap.put(path, scrollView.getScrollY());
-
-        // Get a list of files
-        List<Long> list = new ArrayList<>();
-        Map<Long, String> map = new HashMap<>();
-        for (String name: pathMap.keySet())
-        {
-            File temp = new File(name);
-            // Add to remove list if non existant
-            if (!temp.exists())
-            {
-                removeList.add(name);
-                continue;
-            }
-
-            list.add(temp.lastModified());
-            map.put(temp.lastModified(), name);
-        }
-
-        // Remove non existant entries
-        for (String name: removeList)
-            pathMap.remove(name);
-
-        // Sort in reverse order
-        Collections.sort(list);
-        Collections.reverse(list);
-
-        int count = 0;
-        for (long date : list)
-        {
-            String name = map.get(date);
-
-            // Remove old files
-            if (count >= sharedConstants.MAX_PATHS)
-            {
-                pathMap.remove(name);
-                removeList.add(name);
-            }
-
-            count++;
-        }
-    }
-
     // openRecent
-    private void openRecent(MenuItem item)
+    private void optionOpenRecent(MenuItem item)
     {
         // Get path from condensed title
         String name = item.getTitleCondensed().toString();
@@ -1127,7 +1030,7 @@ public class Editor extends Activity
     }
 
     // saveAs
-    private void saveAs()
+    private void optionSaveAs()
     {
         // Remove path prefix
         String name =
@@ -1159,7 +1062,7 @@ public class Editor extends Activity
                 Uri newUri = Uri.fromFile(fileHandler.getNewFile());
                 if (newUri.getPath().equals(sharedVariables.fileWrapper.uri.getPath()))
                 {
-                    saveAs();
+                    optionSaveAs();
                     return;
                 }
 
@@ -1173,7 +1076,7 @@ public class Editor extends Activity
                     setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
                     sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
                     sharedVariables.fileWrapper.content = null;
-                    saveFileHandler();
+                    saveFile();
                 }
                 break;
 
@@ -1426,37 +1329,32 @@ public class Editor extends Activity
         }
     }
 
-    // recreate
-    private void recreate(Context context)
-    {
-        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.M)
-            recreate();
-    }
-
     // openFile
     private void optionOpenFile() {
         // Check if file changed
         if (sharedVariables.changed) {
-            popupUnsavedChanges();
+           popupUnsavedChanges();
         }
-        getDirectory();
+        displayDirectory(null);
     }
 
-    // getFile
-    private void getDirectory()
+
+    ///-----------///
+    /// FUNCTIONS ///
+    ///-----------///
+
+    private void displayDirectory(File dir)
     {
         if(!checkPermissions(sharedConstants.REQUEST_OPEN)){
             return;
         }
 
         // Open parent folder
-        File dir = sharedVariables.fileWrapper.file.getParentFile();
-        displayDirectory(dir);
-    }
+        if(dir == null){
+            dir = sharedVariables.fileWrapper.file.getParentFile();
+        }
 
-    // getFile
-    private void displayDirectory(File dir)
-    {
+
         // Get list of files
         List<File> fileList = fileHandler.getList(dir);
         if (fileList == null)
@@ -1511,7 +1409,7 @@ public class Editor extends Activity
                                           .WRITE_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, save file
-                    saveFileHandler();
+                    saveFile();
             break;
 
         case 1:
@@ -1529,10 +1427,105 @@ public class Editor extends Activity
                                           .READ_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, open file
-                    getDirectory();
+                    displayDirectory(null);
             break;
             default:
                 break;
+        }
+    }
+
+    private void defaultFile(String text)
+    {
+        textView.setText("");
+        sharedVariables.changed = false;
+
+        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.uri.getPath();
+        sharedVariables.fileWrapper.content = null;
+
+        if (text != null){
+            textView.append(text);
+        }
+        else
+        {
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+            sharedVariables.match = sharedConstants.UTF_8;
+            getActionBar().setSubtitle(sharedVariables.match);
+        }
+    }
+
+    private void lastFile()
+    {
+        String lastFilePath = (String) editorPreferences.get(Preferences.File);
+
+        if (lastFilePath.isEmpty())
+        {
+            defaultFile(null);
+            return;
+        }
+
+        sharedVariables.fileWrapper.file = new File(lastFilePath);
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        lastFilePath = sharedVariables.fileWrapper.uri.getPath();
+
+        if (sharedVariables.fileWrapper.file.exists())
+            loadFile(sharedVariables.fileWrapper.uri);
+
+        else
+        {
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+            sharedVariables.match = sharedConstants.UTF_8;
+            getActionBar().setSubtitle(sharedVariables.match);
+        }
+    }
+
+    private void savePath(String path)
+    {
+        if (path == null)
+            return;
+
+        // Save the current position
+        pathMap.put(path, scrollView.getScrollY());
+
+        // Get a list of files
+        List<Long> list = new ArrayList<>();
+        Map<Long, String> map = new HashMap<>();
+        for (String name: pathMap.keySet())
+        {
+            File temp = new File(name);
+            // Add to remove list if non existant
+            if (!temp.exists())
+            {
+                removeList.add(name);
+                continue;
+            }
+
+            list.add(temp.lastModified());
+            map.put(temp.lastModified(), name);
+        }
+
+        // Remove non existant entries
+        for (String name: removeList)
+            pathMap.remove(name);
+
+        // Sort in reverse order
+        Collections.sort(list);
+        Collections.reverse(list);
+
+        int count = 0;
+        for (long date : list)
+        {
+            String name = map.get(date);
+
+            // Remove old files
+            if (count >= sharedConstants.MAX_PATHS)
+            {
+                pathMap.remove(name);
+                removeList.add(name);
+            }
+
+            count++;
         }
     }
 
@@ -1651,289 +1644,24 @@ public class Editor extends Activity
         invalidateOptionsMenu();
     }
 
-
-
-    private void saveFileHandler() {
+    public void saveFile(){
         if (!checkPermissions(sharedConstants.REQUEST_SAVE)) {
             return;
         }
-
-        Uri currentUri = Uri.fromFile(sharedVariables.fileWrapper.file);
-        Uri newFileUri = Uri.fromFile(fileHandler.getNewFile());
-
-        if (sharedVariables.fileWrapper.content == null && newFileUri.getPath().equals(currentUri.getPath())) {
-            saveAs();
-        } else {
-                removeTextViewCallbacks();
-
-            if (sharedVariables.fileWrapper.file.lastModified() > sharedVariables.modified) {
-                popupOverwrite();
-                sharedVariables.changed = false;
-            } else {
-                try{
-                    fileHandler.saveFile(sharedVariables.fileWrapper.content != null ? sharedVariables.fileWrapper.content : sharedVariables.fileWrapper.file,textView.getText());
-                }catch(Exception e){
-                    popupSaveError(e);
-                }finally {
-                    invalidateOptionsMenu();
-                }
-            }
-        }
-    }
-
-
-    private AlertDialog.Builder buildNewAlertDialog(Context context,int title, String message){
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-
-        builder.setTitle(title);
         try{
-            //Method was called from alertDialog with pos/neg button
-            int messageInt = Integer.parseInt(message);
-            builder.setMessage(messageInt);
-        }catch (Exception e){
-            //Method was called from alertDialog with neutral button
-            builder.setMessage(message);
+            fileHandler.saveFile(textView.getText());
+            removeTextViewCallbacks();
+
+            invalidateOptionsMenu();
+        }catch (IOException ioe){
+            if(ioe.getMessage().equals("Overwrite default file")){
+                optionSaveAs();
+            }else{
+                popupSaveError(ioe);
+            }
         }
-        return builder;
     }
 
-    private void alertDialog(Context context, int title, int message,
-                                    int positiveButton, int negativeButton,
-                                    DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message+"");
-
-        // Add the buttons
-        builder.setPositiveButton(positiveButton, listener);
-        builder.setNegativeButton(negativeButton, listener);
-
-        // Create the AlertDialog
-        builder.show();
-    }
-
-    public void alertDialog(Context context, int title,
-                                   String message, int neutralButton)
-    {
-        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message);
-
-        // Add the buttons
-        builder.setNeutralButton(neutralButton, null);
-
-        // Create the AlertDialog
-        builder.show();
-    }
-
-    private void popupUnsavedChanges(){
-        alertDialog(this, R.string.open, R.string.modified,R.string.save, R.string.discard, (dialog, id) ->
-        {
-            if (id == DialogInterface.BUTTON_POSITIVE) {
-                saveFileHandler();
-            } else if (id == DialogInterface.BUTTON_NEGATIVE) {
-                sharedVariables.changed = false;
-            }
-        });
-    }
-
-    private void popupQuitUnsavedChanges(){
-        alertDialog(this, R.string.appName, R.string.modified,
-                R.string.save, R.string.discard, (dialog, id) ->
-                {
-                    if (id == DialogInterface.BUTTON_POSITIVE) {
-                        saveFileHandler();
-                        finish();
-                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
-                        sharedVariables.changed = false;
-                        finish();
-                    }
-                });
-    }
-
-    private void popupNewFileUnsavedChanges(){
-        alertDialog(this, R.string.newFile, R.string.modified,
-                R.string.save, R.string.discard, (dialog, id) ->
-                {
-                    if(id == DialogInterface.BUTTON_POSITIVE){
-                        saveFileHandler();
-                    }
-                });
-    }
-
-    private void popupOverwriteOptionSaveAs(){
-        alertDialog(this, R.string.appName,R.string.changedOverwrite,
-                R.string.overwrite, R.string.cancel, (d, b) ->
-                {
-                    if (b == DialogInterface.BUTTON_POSITIVE) {// Set interface title
-                        setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
-                        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
-                        saveFileHandler();
-                    }
-                });
-    }
-
-    private void popupOverwrite() {
-        alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
-            if (id == DialogInterface.BUTTON_POSITIVE) {
-                try {
-                    fileHandler.saveFile(sharedVariables.fileWrapper.file,textView.getText());
-                } catch (IOException e) {
-                    popupSaveError(e);
-                }
-            }
-        });
-    }
-
-    private void popupOpenRecentUnsavedChanges(Uri uriToOpen){
-        alertDialog(this, R.string.openRecent, R.string.modified,
-                R.string.save, R.string.discard, (dialog, id) ->
-                {
-                    if (id == DialogInterface.BUTTON_POSITIVE) {
-                        saveFileHandler();
-                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
-                                this, Editor.class));
-                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
-                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
-                                this, Editor.class));
-                    }
-                });
-    }
-    private void popupExternalChanges(){
-        alertDialog(this, R.string.appName, R.string.changedReload,
-                R.string.reload, R.string.cancel, (dialog, id) ->
-                {
-                    if(id == DialogInterface.BUTTON_POSITIVE)
-                    {
-                        loadFile(sharedVariables.fileWrapper.uri);
-                    }
-                });
-    }
-
-    private void popupSaveError(Exception e) {
-        alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
-        e.printStackTrace();
-    }
-
-    private void popupSaveAs(String path,DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = buildNewAlertDialog(this,R.string.save,R.string.choose+"");
-
-        // Add the buttons
-        builder.setPositiveButton(R.string.save, listener);
-        builder.setNegativeButton(R.string.cancel, listener);
-        builder.setNeutralButton(R.string.storage, listener);
-
-        // Create edit text
-        LayoutInflater inflater = (LayoutInflater) builder.getContext()
-                .getSystemService(LAYOUT_INFLATER_SERVICE);
-        View view = inflater.inflate(R.layout.save_path, null);
-        builder.setView(view);
-
-        // Create the AlertDialog
-        AlertDialog dialog = builder.show();
-        TextView text = dialog.findViewById(R.id.pathText);
-        text.setText(path);
-    }
-
-    public static void popupOpenFile(Context context, List<String> dirList,
-                                     List<File> fileList,
-                                     DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(sharedConstants.FOLDER);
-
-        // Add the adapter
-        FileAdapter adapter = new FileAdapter(builder.getContext(), fileList);
-        builder.setAdapter(adapter, listener);
-
-        // Add storage button
-        builder.setNeutralButton(R.string.storage, listener);
-        // Add cancel button
-        builder.setNegativeButton(R.string.cancel, null);
-
-        // Create the Dialog
-        AlertDialog dialog = builder.create();
-        dialog.show();
-
-        // Find the title view
-        ViewGroup title = dialog.findViewById
-                (context.getResources().getIdentifier("title_template",
-                        "id", "android"));
-        // Replace content with scroll view
-        title.removeAllViews();
-        HorizontalScrollView scroll = new
-                HorizontalScrollView(dialog.getContext());
-        title.addView(scroll);
-        // Add a row of folder buttons
-        LinearLayout layout = new LinearLayout(dialog.getContext());
-        scroll.addView(layout);
-        for (String dir: dirList)
-        {
-            Button button = new Button(dialog.getContext(), null,
-                    android.R.attr.buttonStyleSmall);
-            button.setId(dirList.indexOf(dir) + sharedConstants.FOLDER_OFFSET);
-            button.setText(dir);
-            button.setOnClickListener(v ->
-            {
-                listener.onClick(dialog, v.getId());
-                dialog.dismiss();
-            });
-            layout.addView(button);
-        }
-
-        // Scroll to the end
-        scroll.postDelayed(() ->
-                scroll.fullScroll(View.FOCUS_RIGHT), sharedConstants.POSITION_DELAY);
-    }
-
-    private void popupFileToLarge(long size) {
-        String large = getString(R.string.tooLarge);
-        alertDialog(this, R.string.appName,
-                String.format(large, FileUtils.getReadableFileSize(size)),
-                R.string.ok);
-    }
-
-    private void popupGoTo(OnSeekBarChangeListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(R.string.goTo);
-
-        // Add the buttons
-        builder.setNegativeButton(R.string.cancel, null);
-
-        // Create seek bar
-        LayoutInflater inflater = (LayoutInflater) builder.getContext()
-                .getSystemService(LAYOUT_INFLATER_SERVICE);
-        View view = inflater.inflate(R.layout.seek_bar, null);
-        builder.setView(view);
-
-        // Create the AlertDialog
-        AlertDialog dialog = builder.show();
-        SeekBar seekBar = dialog.findViewById(R.id.seekBar);
-        int height = textView.getHeight();
-        int progress = scrollView.getScrollY() * seekBar.getMax() / height;
-        seekBar.setProgress(progress);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener()
-        {
-            @Override
-            public void onProgressChanged(SeekBar seekBar,
-                                          int progress,
-                                          boolean fromUser)
-            {
-                if (fromUser)
-                    listener.onProgressChanged(seekBar, progress);
-            }
-
-            @Override
-            public void onStartTrackingTouch (SeekBar seekBar) { /* Needs to be overridden because of android */ }
-
-            @Override
-            public void onStopTrackingTouch (SeekBar seekBar)
-            {
-                dialog.dismiss();
-            }
-        });
-    }
-
-    // onActionModeStarted
     @Override
     public void onActionModeStarted(ActionMode mode)
     {
@@ -1973,23 +1701,23 @@ public class Editor extends Activity
                         {
                             // Check for close brackets and look for
                             // the open brackets
-                        case ')':
-                            c = '(';
-                            break;
+                            case ')':
+                                c = '(';
+                                break;
 
-                        case ']':
-                            c = '[';
-                            break;
+                            case ']':
+                                c = '[';
+                                break;
 
-                        case '}':
-                            c = '{';
-                            break;
+                            case '}':
+                                c = '{';
+                                break;
 
-                        case '>':
-                            c = '<';
-                            break;
-                        default:
-                            break;
+                            case '>':
+                                c = '<';
+                                break;
+                            default:
+                                break;
                         }
 
                         String string = text.toString();
@@ -2006,7 +1734,6 @@ public class Editor extends Activity
         }
     }
 
-    // checkMode
     private void checkMode(CharSequence text) {
         boolean change = false;
 
@@ -2163,9 +1890,6 @@ public class Editor extends Activity
         return false;
     }
 
-
-
-    // FindTask
     public void findTask(String search) {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
         Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -2235,13 +1959,273 @@ public class Editor extends Activity
         });
     }
 
-
     private boolean checkPermissions(int requestCode){
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
         {
-                requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE}, requestCode);
-                return false;
+            requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE}, requestCode);
+            return false;
         }
         return true; //already granted or older versions of android that dont need this
+    }
+
+    private void recreate(Context context)
+    {
+        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.M)
+            recreate();
+    }
+
+
+    ///--------------------///
+    /// POPUPS AND DIALOGS ///
+    ///--------------------///
+
+    private AlertDialog.Builder buildNewAlertDialog(Context context,int title, String message){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+
+        builder.setTitle(title);
+        try{
+            //Method was called from alertDialog with pos/neg button
+            int messageInt = Integer.parseInt(message);
+            builder.setMessage(messageInt);
+        }catch (Exception e){
+            //Method was called from alertDialog with neutral button
+            builder.setMessage(message);
+        }
+        return builder;
+    }
+
+    private void alertDialog(Context context, int title, int message,
+                                    int positiveButton, int negativeButton,
+                                    DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message+"");
+
+        // Add the buttons
+        builder.setPositiveButton(positiveButton, listener);
+        builder.setNegativeButton(negativeButton, listener);
+
+        // Create the AlertDialog
+        builder.show();
+    }
+
+    public void alertDialog(Context context, int title,String message, int neutralButton)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message);
+
+        // Add the buttons
+        builder.setNeutralButton(neutralButton, null);
+
+        // Create the AlertDialog
+        builder.show();
+    }
+
+    private void popupUnsavedChanges(){
+        alertDialog(this, R.string.open, R.string.modified,R.string.save, R.string.discard, (dialog, id) ->
+        {
+            if (id == DialogInterface.BUTTON_POSITIVE) {
+                saveFile();
+            } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                sharedVariables.changed = false;
+            }
+        });
+    }
+
+    private void popupQuitUnsavedChanges(){
+        alertDialog(this, R.string.appName, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if (id == DialogInterface.BUTTON_POSITIVE) {
+                        saveFile();
+                        finish();
+                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                        sharedVariables.changed = false;
+                        finish();
+                    }
+                });
+    }
+
+    private void popupNewFileUnsavedChanges(){
+        alertDialog(this, R.string.newFile, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if(id == DialogInterface.BUTTON_POSITIVE){
+                        saveFile();
+                    }
+                });
+    }
+
+    private void popupOverwriteOptionSaveAs(){
+        alertDialog(this, R.string.appName,R.string.changedOverwrite,
+                R.string.overwrite, R.string.cancel, (d, b) ->
+                {
+                    if (b == DialogInterface.BUTTON_POSITIVE) {// Set interface title
+                        setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+                        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
+                        saveFile();
+                    }
+                });
+    }
+
+    private void popupOverwrite() {
+        alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
+            if (id == DialogInterface.BUTTON_POSITIVE) {
+                try {
+                    fileHandler.saveFile(sharedVariables.fileWrapper.file,textView.getText());
+                } catch (IOException e) {
+                    popupSaveError(e);
+                }
+            }
+        });
+    }
+
+    private void popupOpenRecentUnsavedChanges(Uri uriToOpen){
+        alertDialog(this, R.string.openRecent, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if (id == DialogInterface.BUTTON_POSITIVE) {
+                        saveFile();
+                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                                this, Editor.class));
+                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                                this, Editor.class));
+                    }
+                });
+    }
+    private void popupExternalChanges(){
+        alertDialog(this, R.string.appName, R.string.changedReload,
+                R.string.reload, R.string.cancel, (dialog, id) ->
+                {
+                    if(id == DialogInterface.BUTTON_POSITIVE)
+                    {
+                        loadFile(sharedVariables.fileWrapper.uri);
+                    }
+                });
+    }
+
+    private void popupSaveError(Exception e) {
+        alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
+        e.printStackTrace();
+    }
+
+    private void popupSaveAs(String path,DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(this,R.string.save,R.string.choose+"");
+
+        // Add the buttons
+        builder.setPositiveButton(R.string.save, listener);
+        builder.setNegativeButton(R.string.cancel, listener);
+        builder.setNeutralButton(R.string.storage, listener);
+
+        // Create edit text
+        LayoutInflater inflater = (LayoutInflater) builder.getContext()
+                .getSystemService(LAYOUT_INFLATER_SERVICE);
+        View view = inflater.inflate(R.layout.save_path, null);
+        builder.setView(view);
+
+        // Create the AlertDialog
+        AlertDialog dialog = builder.show();
+        TextView text = dialog.findViewById(R.id.pathText);
+        text.setText(path);
+    }
+
+    public static void popupOpenFile(Context context, List<String> dirList,
+                                     List<File> fileList,
+                                     DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(sharedConstants.FOLDER);
+
+        // Add the adapter
+        FileAdapter adapter = new FileAdapter(builder.getContext(), fileList);
+        builder.setAdapter(adapter, listener);
+
+        // Add storage button
+        builder.setNeutralButton(R.string.storage, listener);
+        // Add cancel button
+        builder.setNegativeButton(R.string.cancel, null);
+
+        // Create the Dialog
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Find the title view
+        ViewGroup title = dialog.findViewById
+                (context.getResources().getIdentifier("title_template",
+                        "id", "android"));
+        // Replace content with scroll view
+        title.removeAllViews();
+        HorizontalScrollView scroll = new
+                HorizontalScrollView(dialog.getContext());
+        title.addView(scroll);
+        // Add a row of folder buttons
+        LinearLayout layout = new LinearLayout(dialog.getContext());
+        scroll.addView(layout);
+        for (String dir: dirList)
+        {
+            Button button = new Button(dialog.getContext(), null,
+                    android.R.attr.buttonStyleSmall);
+            button.setId(dirList.indexOf(dir) + sharedConstants.FOLDER_OFFSET);
+            button.setText(dir);
+            button.setOnClickListener(v ->
+            {
+                listener.onClick(dialog, v.getId());
+                dialog.dismiss();
+            });
+            layout.addView(button);
+        }
+
+        // Scroll to the end
+        scroll.postDelayed(() ->
+                scroll.fullScroll(View.FOCUS_RIGHT), sharedConstants.POSITION_DELAY);
+    }
+
+    private void popupFileToLarge(long size) {
+        String large = getString(R.string.tooLarge);
+        alertDialog(this, R.string.appName,
+                String.format(large, FileUtils.getReadableFileSize(size)),
+                R.string.ok);
+    }
+
+    private void popupGoTo(OnSeekBarChangeListener listener)
+    {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.goTo);
+
+        // Add the buttons
+        builder.setNegativeButton(R.string.cancel, null);
+
+        // Create seek bar
+        LayoutInflater inflater = (LayoutInflater) builder.getContext()
+                .getSystemService(LAYOUT_INFLATER_SERVICE);
+        View view = inflater.inflate(R.layout.seek_bar, null);
+        builder.setView(view);
+
+        // Create the AlertDialog
+        AlertDialog dialog = builder.show();
+        SeekBar seekBar = dialog.findViewById(R.id.seekBar);
+        int height = textView.getHeight();
+        int progress = scrollView.getScrollY() * seekBar.getMax() / height;
+        seekBar.setProgress(progress);
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener()
+        {
+            @Override
+            public void onProgressChanged(SeekBar seekBar,
+                                          int progress,
+                                          boolean fromUser)
+            {
+                if (fromUser)
+                    listener.onProgressChanged(seekBar, progress);
+            }
+
+            @Override
+            public void onStartTrackingTouch (SeekBar seekBar) { /* Needs to be overridden because of android */ }
+
+            @Override
+            public void onStopTrackingTouch (SeekBar seekBar)
+            {
+                dialog.dismiss();
+            }
+        });
     }
 }

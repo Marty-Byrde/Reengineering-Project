@@ -1,9 +1,12 @@
 package org.billthefarmer.editor.fileHandler;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Log;
 
@@ -34,7 +37,7 @@ import java.util.List;
 public class FileHandler implements IFileHandler {
     private static FileHandler instance;
     private static final SharedVariables sharedVariables = SharedVariables.getInstance();
-    private static final SharedConstants sharedConstants = SharedConstants.getInstance();;
+    private static final SharedConstants sharedConstants = SharedConstants.getInstance();
 
     private FileHandler(){
     }
@@ -205,4 +208,21 @@ public class FileHandler implements IFileHandler {
         return list;
     }
 
+    public void saveFile(CharSequence text) throws IOException{
+
+        Uri currentUri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        Uri newFileUri = Uri.fromFile(getNewFile());
+
+        if (sharedVariables.fileWrapper.content == null && newFileUri.getPath().equals(currentUri.getPath())) {
+            throw new IOException("Overwrite default file");
+        } else {
+
+            if (sharedVariables.fileWrapper.file.lastModified() > sharedVariables.modified) {
+                //popupOverwrite();
+                sharedVariables.changed = false;
+            } else {
+                    saveFile(sharedVariables.fileWrapper.content != null ? sharedVariables.fileWrapper.content : sharedVariables.fileWrapper.file,text);
+            }
+        }
+    }
 }

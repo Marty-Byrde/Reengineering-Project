@@ -12,4 +12,5 @@ public interface IFileHandler {
     File getNewFile();
     void saveFile(Object input,CharSequence textContent) throws IOException;
     List<File> getList(File dir);
+    void saveFile(CharSequence text) throws IOException;
 }
