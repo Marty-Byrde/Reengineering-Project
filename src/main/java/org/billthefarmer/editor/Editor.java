@@ -139,10 +139,10 @@ public class Editor extends Activity
 
     private Map<Preferences, Object> editorPreferences;
 
-    private static IFileHandler fileHandler;
-    private static SharedConstants sharedConstants;
-    private static SharedVariables sharedVariables;
-    private static EditorTextUtils editorTextUtils;
+    private static IFileHandler fileHandler = FileHandler.getInstance();
+    private static SharedConstants sharedConstants= SharedConstants.getInstance();
+    private static SharedVariables sharedVariables = SharedVariables.getInstance();
+    private static EditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
 
     // onCreate
     @Override
@@ -153,20 +153,14 @@ public class Editor extends Activity
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
 
-        //Get Singeltons
-        fileHandler = FileHandler.getInstance();
-        sharedConstants = SharedConstants.getInstance();
-        sharedVariables = SharedVariables.getInstance();
-        editorTextUtils = EditorTextUtils.getInstance();
-
         sharedVariables.appContext = this;
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
         if (pathSet != null)
-            for (String path : pathSet)
-                pathMap.put(path, sharedPreferences.getInt(path, 0));
+            for (String pathEntry : pathSet)
+                pathMap.put(pathEntry, sharedPreferences.getInt(pathEntry, 0));
 
         removeList = new ArrayList<>();
 
@@ -206,13 +200,13 @@ public class Editor extends Activity
         setSizeAndTypeface(sharedVariables.size, type);
 
         Intent intent = getIntent();
-        Uri uri = intent.getData();
+        Uri intentUri = intent.getData();
 
         switch (intent.getAction())
         {
         case Intent.ACTION_VIEW,Intent.ACTION_EDIT:
-            if ((savedInstanceState == null) && (uri != null))
-                readFile(uri);
+            if ((savedInstanceState == null) && (intentUri != null))
+                readFile(intentUri);
 
             getActionBar().setDisplayHomeAsUpEnabled(true);
             break;
@@ -221,11 +215,11 @@ public class Editor extends Activity
             if (savedInstanceState == null)
             {
                 // Get uri
-                uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                intentUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
                 // Get text
                 String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                if (uri != null)
-                    readFile(uri);
+                if (intentUri != null)
+                    readFile(intentUri);
 
                 else if (text != null)
                 {
@@ -256,6 +250,8 @@ public class Editor extends Activity
                     defaultFile(null);
             }
             break;
+            default:
+                break;
         }
 
         setListeners();
@@ -306,18 +302,16 @@ public class Editor extends Activity
                         textView.postDelayed(() ->
                         {
                             if (searchItem != null &&
-                                searchItem.isActionViewExpanded())
-                            {
-                                if (query != null)
+                                searchItem.isActionViewExpanded() && query != null)
                                     searchView.setQuery(query, false);
-                            }
+
                         }, sharedConstants.UPDATE_DELAY);
                     }
                 }
 
                 // onTextChanged
                 @Override
-                public void onTextChanged(CharSequence s,int start,int before,int count) {}
+                public void onTextChanged(CharSequence s,int start,int before,int count) { /* Needs to be overridden because of android*/ }
             });
 
             // onFocusChange
@@ -354,7 +348,7 @@ public class Editor extends Activity
                 int line = textView.getLayout()
                     .getLineForVertical(y + height / 2);
                 int offset = textView.getLayout()
-                    .getOffsetForHorizontal(line, width / 2);
+                    .getOffsetForHorizontal(line, (float) width / 2);
                 // Set cursor
                 textView.setSelection(offset);
 
@@ -443,51 +437,62 @@ public class Editor extends Activity
 
     // onPause
     @Override
-    public void onPause()
-    {
+    public void onPause() {
         super.onPause();
 
-        // Save current path
         savePath(path);
+        removeTextViewCallbacks();
 
-        // Stop highlighting
-        textView.removeCallbacks(sharedVariables.updateHighlight);
-        textView.removeCallbacks(updateWordCount);
+        savePreferences();
 
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        // Save file if needed
+        if (sharedVariables.changed && getPreferenceBoolean(Preferences.autoSaveFeature)) {
+            saveFileHandler();
+        }
+    }
+
+    private void savePreferences() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = preferences.edit();
 
-        editor.putBoolean(PREF_SAVE, (boolean) editorPreferences.get(Preferences.autoSaveFeature));
-        editor.putBoolean(PREF_VIEW, (boolean) editorPreferences.get(Preferences.isReadOnly));
-        editor.putBoolean(PREF_LAST, (boolean) editorPreferences.get(Preferences.isLast));
-        editor.putBoolean(PREF_WRAP, (boolean) editorPreferences.get(Preferences.isContentWrapped));
-        editor.putBoolean(PREF_SUGGEST, (boolean) editorPreferences.get(Preferences.isSuggestEnabled));
-        editor.putBoolean(PREF_HIGH, (boolean) editorPreferences.get(Preferences.isHighlightEnabled));
-
-        editor.putInt(PREF_THEME, (int) editorPreferences.get(Preferences.Theme));
-        editor.putInt(PREF_SIZE, (int) editorPreferences.get(Preferences.FontSize));
-        editor.putInt(PREF_TYPE, (int) editorPreferences.get(Preferences.FontType));
-
-        editor.putString(PREF_FILE, path);
-
-        // Add the set of recent files
-        editor.putStringSet(PREF_PATHS, pathMap.keySet());
-
-        // Add a position for each file
-        for (String path : pathMap.keySet())
-            editor.putInt(path, pathMap.get(path));
-
-        // Remove the old ones
-        for (String path : removeList)
-            editor.remove(path);
+        saveOnPausePreferences(editor);
+        saveRecentPaths(editor);
 
         editor.apply();
-
-        // Save file
-        if (sharedVariables.changed && (boolean) editorPreferences.get(Preferences.autoSaveFeature))
-            saveFileHandler();
     }
+
+    private void saveOnPausePreferences(SharedPreferences.Editor editor) {
+        editor.putBoolean(PREF_SAVE, getPreferenceBoolean(Preferences.autoSaveFeature));
+        editor.putBoolean(PREF_VIEW, getPreferenceBoolean(Preferences.isReadOnly));
+        editor.putBoolean(PREF_LAST, getPreferenceBoolean(Preferences.isLast));
+        editor.putBoolean(PREF_WRAP, getPreferenceBoolean(Preferences.isContentWrapped));
+        editor.putBoolean(PREF_SUGGEST, getPreferenceBoolean(Preferences.isSuggestEnabled));
+        editor.putBoolean(PREF_HIGH, getPreferenceBoolean(Preferences.isHighlightEnabled));
+        editor.putInt(PREF_THEME, getPreferenceInt(Preferences.Theme));
+        editor.putInt(PREF_SIZE, getPreferenceInt(Preferences.FontSize));
+        editor.putInt(PREF_TYPE, getPreferenceInt(Preferences.FontType));
+        editor.putString(PREF_FILE, path);
+    }
+    private void saveRecentPaths(SharedPreferences.Editor editor) {
+        editor.putStringSet(PREF_PATHS, pathMap.keySet());
+
+        for (String pathKey : pathMap.keySet()) {
+            editor.putInt(pathKey, pathMap.get(pathKey));
+        }
+
+        for (String pathKey : removeList) {
+            editor.remove(pathKey);
+        }
+    }
+
+    private boolean getPreferenceBoolean(Preferences preference) {
+        return (boolean) editorPreferences.get(preference);
+    }
+
+    private int getPreferenceInt(Preferences preference) {
+        return (int) editorPreferences.get(preference);
+    }
+
 
     // onSaveInstanceState
     @Override
@@ -531,10 +536,7 @@ public class Editor extends Activity
         }
 
         // Show find all item
-        if (menu.findItem(R.id.search).isActionViewExpanded())
-            menu.findItem(R.id.findAll).setVisible(true);
-        else
-            menu.findItem(R.id.findAll).setVisible(false);
+        menu.findItem(R.id.findAll).setVisible(menu.findItem(R.id.search).isActionViewExpanded());
 
         menu.findItem(R.id.edit).setVisible(!edit);
         menu.findItem(R.id.view).setVisible(edit);
@@ -573,7 +575,7 @@ public class Editor extends Activity
             menu.findItem(R.id.retro).setChecked(true);
             break;
         default:
-            throw new IllegalStateException("Unexpected value: " + theme);
+            break;
         }
 
         switch ((int) editorPreferences.get(Preferences.FontSize))
@@ -590,7 +592,7 @@ public class Editor extends Activity
             menu.findItem(R.id.large).setChecked(true);
             break;
             default:
-                throw new IllegalStateException("Unexpected value: " + (int) editorPreferences.get(Preferences.FontSize));
+                break;
         }
 
         // Get the charsets
@@ -606,7 +608,7 @@ public class Editor extends Activity
             sub.add(Menu.NONE, R.id.charsetItem, Menu.NONE, key);
 
         // Get the typefaces
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
+        String[] typefaces = getResources().getStringArray(R.array.typefaces);
         item = menu.findItem(R.id.typeface);
         sub = item.getSubMenu();
         sub.clear();
@@ -621,16 +623,16 @@ public class Editor extends Activity
         Map<Long, String> map = new HashMap<>();
 
         // Get the last modified dates
-        for (String path: pathMap.keySet())
+        for (String tempPath: pathMap.keySet())
         {
-            File file = new File(path);
+            File temp = new File(tempPath);
             // Check it exists
-            if (!file.exists())
+            if (!temp.exists())
                 continue;
 
-            long last = file.lastModified();
+            long last = temp.lastModified();
             list.add(last);
-            map.put(last, path);
+            map.put(last, tempPath);
         }
 
         // Sort in reverse order
@@ -645,11 +647,11 @@ public class Editor extends Activity
         // Add the recent files
         for (long date : list)
         {
-            String path = map.get(date);
+            String filePath = map.get(date);
 
             // Remove path prefix
             CharSequence name =
-                path.replaceFirst(Environment
+                filePath.replaceFirst(Environment
                                   .getExternalStorageDirectory()
                                   .getPath() + File.separator, "");
             // Create item
@@ -766,6 +768,8 @@ public class Editor extends Activity
         case R.id.typefaceItem:
             setTypeface(item);
             break;
+        default:
+           break;
         }
 
         // Close text search
@@ -791,16 +795,12 @@ public class Editor extends Activity
             alertDialog(this, R.string.appName, R.string.modified,
                         R.string.save, R.string.discard, (dialog, id) ->
         {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
+            if (id == DialogInterface.BUTTON_POSITIVE) {
                 saveFileHandler();
                 finish();
-                break;
-            case DialogInterface.BUTTON_NEGATIVE:
+            } else if (id == DialogInterface.BUTTON_NEGATIVE) {
                 sharedVariables.changed = false;
                 finish();
-                break;
             }
         });
 
@@ -827,6 +827,8 @@ public class Editor extends Activity
             content = data.getData();
             setTitle(FileUtils.getDisplayName(this, content, null, null));
             saveFileHandler();
+            break;
+        default:
             break;
         }
     }
@@ -895,8 +897,7 @@ public class Editor extends Activity
                     saveFileHandler();
                 break;
                 // Increase text size
-            case KeyEvent.KEYCODE_PLUS:
-            case KeyEvent.KEYCODE_EQUALS:
+            case KeyEvent.KEYCODE_EQUALS,KeyEvent.KEYCODE_PLUS:
                 sharedVariables.size += 2;
                 sharedVariables.size = Math.max(TINY, Math.min(sharedVariables.size, HUGE));
                 textView.setTextSize(sharedVariables.size);
@@ -952,7 +953,7 @@ public class Editor extends Activity
         int line = textView.getLayout()
             .getLineForVertical(y + height / 2);
         int offset = textView.getLayout()
-            .getOffsetForHorizontal(line, width / 2);
+            .getOffsetForHorizontal(line, (float) width / 2);
         // Set cursor
         textView.setSelection(offset);
 
@@ -1028,17 +1029,17 @@ public class Editor extends Activity
     // lastFile
     private void lastFile()
     {
-        String path = (String) editorPreferences.get(Preferences.File);
+        String lastFilePath = (String) editorPreferences.get(Preferences.File);
 
-        if (path.isEmpty())
+        if (lastFilePath.isEmpty())
         {
             defaultFile(null);
             return;
         }
 
-        file = new File(path);
+        file = new File(lastFilePath);
         uri = Uri.fromFile(file);
-        path = uri.getPath();
+        lastFilePath = uri.getPath();
 
         if (file.exists())
             readFile(uri);
@@ -1065,7 +1066,7 @@ public class Editor extends Activity
         Typeface typeface = Typeface.create(name, Typeface.NORMAL);
         textView.setTypeface(typeface);
         item.setChecked(true);
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
+        String[] typefaces = getResources().getStringArray(R.array.typefaces);
         List<String> list = Arrays.asList(typefaces);
         type = list.indexOf(name);
     }
@@ -1127,16 +1128,16 @@ public class Editor extends Activity
         Map<Long, String> map = new HashMap<>();
         for (String name: pathMap.keySet())
         {
-            File file = new File(name);
+            File temp = new File(name);
             // Add to remove list if non existant
-            if (!file.exists())
+            if (!temp.exists())
             {
                 removeList.add(name);
                 continue;
             }
 
-            list.add(file.lastModified());
-            map.put(file.lastModified(), name);
+            list.add(temp.lastModified());
+            map.put(temp.lastModified(), name);
         }
 
         // Remove non existant entries
@@ -1168,38 +1169,33 @@ public class Editor extends Activity
     {
         // Get path from condensed title
         String name = item.getTitleCondensed().toString();
-        File file = new File(name);
+        File fileToOpen = new File(name);
 
         // Check absolute file
-        if (!file.isAbsolute())
-            file = new File(Environment.getExternalStorageDirectory(), name);
+        if (!fileToOpen.isAbsolute())
+            fileToOpen = new File(Environment.getExternalStorageDirectory(), name);
         // Check it exists
-        if (file.exists())
+        if (fileToOpen.exists())
         {
-            Uri uri = Uri.fromFile(file);
+            Uri uriToOpen = Uri.fromFile(fileToOpen);
 
             if (sharedVariables.changed)
                 alertDialog(this, R.string.openRecent, R.string.modified,
                             R.string.save, R.string.discard, (dialog, id) ->
             {
-                switch (id)
-                {
-                case DialogInterface.BUTTON_POSITIVE:
+                if (id == DialogInterface.BUTTON_POSITIVE) {
                     saveFileHandler();
-                    startActivity(new Intent(Intent.ACTION_EDIT, uri,
-                                             this, Editor.class));
-                    break;
-
-                case DialogInterface.BUTTON_NEGATIVE:
-                    startActivity(new Intent(Intent.ACTION_EDIT, uri,
-                                             this, Editor.class));
-                    break;
+                    startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                            this, Editor.class));
+                } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                    startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                            this, Editor.class));
                 }
             });
 
             else
                 // New instance
-                startActivity(new Intent(Intent.ACTION_EDIT, uri,
+                startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
                                          this, Editor.class));
         }
     }
@@ -1247,14 +1243,10 @@ public class Editor extends Activity
                                 R.string.changedOverwrite,
                                 R.string.overwrite, R.string.cancel, (d, b) ->
                     {
-                        switch (b)
-                        {
-                        case DialogInterface.BUTTON_POSITIVE:
-                            // Set interface title
+                        if (b == DialogInterface.BUTTON_POSITIVE) {// Set interface title
                             setTitle(uri.getLastPathSegment());
                             path = file.getPath();
                             saveFileHandler();
-                            break;
                         }
                     });
 
@@ -1274,6 +1266,8 @@ public class Editor extends Activity
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.putExtra(Intent.EXTRA_TITLE, uri.getLastPathSegment());
                 startActivityForResult(intent, sharedConstants.CREATE_DOCUMENT);
+                break;
+            default:
                 break;
             }
         });
@@ -1307,8 +1301,8 @@ public class Editor extends Activity
     // clearList
     private void clearList()
     {
-        for (String path : pathMap.keySet())
-            removeList.add(path);
+        for (String temp : pathMap.keySet())
+            removeList.add(temp);
 
         pathMap.clear();
     }
@@ -1375,7 +1369,7 @@ public class Editor extends Activity
             }
 
             @Override
-            public void onStartTrackingTouch (SeekBar seekBar) {}
+            public void onStartTrackingTouch (SeekBar seekBar) { /* Needs to be overridden because of android */ }
 
             @Override
             public void onStopTrackingTouch (SeekBar seekBar)
@@ -1438,10 +1432,10 @@ public class Editor extends Activity
 
         String html = renderer.render(document);
 
-        File file = new File(getCacheDir(), sharedConstants.HTML_FILE);
-        file.deleteOnExit();
+        File markdownFile = new File(getCacheDir(), sharedConstants.HTML_FILE);
+        markdownFile.deleteOnExit();
 
-        try (FileWriter writer = new FileWriter(file))
+        try (FileWriter writer = new FileWriter(markdownFile))
         {
             // Add HTML header and footer to make a valid page.
             writer.write(sharedConstants.HTML_HEAD);
@@ -1457,10 +1451,10 @@ public class Editor extends Activity
         try
         {
             // Get file provider uri
-            Uri uri = FileProvider.getUriForFile
-                (this, sharedConstants.FILE_PROVIDER, file);
+            Uri fileProviderUri = FileProvider.getUriForFile
+                (this, sharedConstants.FILE_PROVIDER, markdownFile);
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, sharedConstants.TEXT_HTML);
+            intent.setDataAndType(fileProviderUri, sharedConstants.TEXT_HTML);
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
         }
@@ -1547,7 +1541,7 @@ public class Editor extends Activity
         textView.setTextSize(size);
 
         // Set type
-        String names[] = getResources().getStringArray(R.array.typefaces);
+        String[] names = getResources().getStringArray(R.array.typefaces);
         Typeface typeface = Typeface.create(names[type], Typeface.NORMAL);
         textView.setTypeface(typeface);
     }
@@ -1602,14 +1596,10 @@ public class Editor extends Activity
         if (sharedVariables.changed) {
         alertDialog(this, R.string.open, R.string.modified,R.string.save, R.string.discard, (dialog, id) ->
                 {
-                    switch (id) {
-                        case DialogInterface.BUTTON_POSITIVE:
-                            saveFileHandler();
-                            break;
-
-                        case DialogInterface.BUTTON_NEGATIVE:
-                            sharedVariables.changed = false;
-                            break;
+                    if (id == DialogInterface.BUTTON_POSITIVE) {
+                        saveFileHandler();
+                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                        sharedVariables.changed = false;
                     }
                 });
         }
@@ -1637,7 +1627,7 @@ public class Editor extends Activity
             return;
 
         // Get list of folders
-        List<String> dirList = new ArrayList<String>();
+        List<String> dirList = new ArrayList<>();
         dirList.add(File.separator);
         dirList.addAll(Uri.fromFile(dir).getPathSegments());
 
@@ -1683,7 +1673,7 @@ public class Editor extends Activity
         {
             // Create a list with just the parent folder and the
             // external storage folder
-            list = new ArrayList<File>();
+            list = new ArrayList<>();
             if (dir.getParentFile() == null)
                 list.add(dir);
 
@@ -1698,7 +1688,7 @@ public class Editor extends Activity
         // Sort the files
         Arrays.sort(files);
         // Create a list
-        list = new ArrayList<File>(Arrays.asList(files));
+        list = new ArrayList<>(Arrays.asList(files));
 
         // Add parent folder
         if (dir.getParentFile() == null)
@@ -1749,7 +1739,7 @@ public class Editor extends Activity
                                        android.R.attr.buttonStyleSmall);
             button.setId(dirList.indexOf(dir) + sharedConstants.FOLDER_OFFSET);
             button.setText(dir);
-            button.setOnClickListener((v) ->
+            button.setOnClickListener(v ->
             {
                 listener.onClick(dialog, v.getId());
                 dialog.dismiss();
@@ -1759,9 +1749,7 @@ public class Editor extends Activity
 
         // Scroll to the end
         scroll.postDelayed(() ->
-        {
-            scroll.fullScroll(View.FOCUS_RIGHT);
-        }, sharedConstants.POSITION_DELAY);
+                scroll.fullScroll(View.FOCUS_RIGHT), sharedConstants.POSITION_DELAY);
     }
 
     // onRequestPermissionsResult
@@ -1796,6 +1784,8 @@ public class Editor extends Activity
                     // Granted, open file
                     getFile();
             break;
+            default:
+                break;
         }
     }
 
@@ -1892,8 +1882,8 @@ public class Editor extends Activity
     private Uri resolveContent(Uri uri) {
         String path = FileUtils.getPath(this, uri);
         if (path != null) {
-            File file = new File(path);
-            if (file.canRead()) uri = Uri.fromFile(file);
+            File temp = new File(path);
+            if (temp.canRead()) uri = Uri.fromFile(temp);
         }
         return uri;
     }
@@ -2033,9 +2023,9 @@ public class Editor extends Activity
         if (file != null)
         {
             // Get the mime type
-            String type = FileUtils.getMimeType(file);
+            String mimeType = FileUtils.getMimeType(file);
             // If the type is not text/plain
-            if (!sharedConstants.TEXT_PLAIN.equals(type))
+            if (!sharedConstants.TEXT_PLAIN.equals(mimeType))
             {
                 // Get the start and end of the selection
                 int start = textView.getSelectionStart();
@@ -2077,6 +2067,8 @@ public class Editor extends Activity
 
                         case '>':
                             c = '<';
+                            break;
+                        default:
                             break;
                         }
 
@@ -2197,14 +2189,12 @@ public class Editor extends Activity
                             }
                         }
 
-                        else if (":r".equals(matcher.group(4)))
-                        {
-                            if (theme != RETRO)
+                        else if (":r".equals(matcher.group(4)) && theme != RETRO)
                             {
                                 theme = RETRO;
                                 change = true;
                             }
-                        }
+
                     }
 
                     else if ("ts".equals(matcher.group(3)))
@@ -2227,14 +2217,12 @@ public class Editor extends Activity
                             }
                         }
 
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (sharedVariables.size != SMALL)
+                        else if (":s".equals(matcher.group(4)) && sharedVariables.size != SMALL)
                             {
                                 sharedVariables.size = SMALL;
                                 textView.setTextSize(sharedVariables.size);
                             }
-                        }
+
                     }
 
                     else if ("tf".equals(matcher.group(3)))
@@ -2257,24 +2245,20 @@ public class Editor extends Activity
                             }
                         }
 
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (type != SERIF)
+                        else if (":s".equals(matcher.group(4)) && type != SERIF)
                             {
                                 type = SERIF;
                                 textView.setTypeface(Typeface.SERIF);
                             }
-                        }
+
                     }
 
-                    else if ("cs".equals(matcher.group(3)))
-                    {
-                        if (":u".equals(matcher.group(4)))
+                    else if ("cs".equals(matcher.group(3)) && ":u".equals(matcher.group(4)))
                         {
                             sharedVariables.match = sharedConstants.UTF_8;
                             getActionBar().setSubtitle(sharedVariables.match);
                         }
-                    }
+
                 }
             }
         }
@@ -2289,7 +2273,6 @@ public class Editor extends Activity
             extends AsyncTask<String, Void, List<File>>
     {
         private WeakReference<Editor> editorWeakReference;
-        private Pattern pattern;
         private String search;
 
         // FindTask
@@ -2302,6 +2285,7 @@ public class Editor extends Activity
         @Override
         protected List<File> doInBackground(String... params)
         {
+            Pattern pattern;
             // Create a list of matches
             List<File> matchList = new ArrayList<>();
             final Editor editor = editorWeakReference.get();
