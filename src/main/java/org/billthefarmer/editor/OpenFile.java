@@ -261,7 +261,7 @@ public class OpenFile extends Activity
         dirList.addAll(Uri.fromFile(dir).getPathSegments());
 
         // Pop up dialog
-        Editor.openDialog(this, dirList, fileList, (dialog, which) ->
+        Editor.popupOpenFile(this, dirList, fileList, (dialog, which) ->
         {
             if (DialogInterface.BUTTON_NEUTRAL == which)
             {

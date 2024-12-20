@@ -32,6 +32,9 @@ import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 import org.billthefarmer.editor.BuildConfig;
+import org.billthefarmer.editor.dto.FileSizeDTO;
+import org.billthefarmer.editor.values.SharedConstants;
+import org.billthefarmer.editor.values.SharedVariables;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -52,6 +55,8 @@ public class FileUtils
      * TAG for log messages.
      */
     private static final String TAG = "FileUtils";
+    private static final SharedConstants sharedConstants= SharedConstants.getInstance();
+    private static final SharedVariables sharedVariables= SharedVariables.getInstance();
     // pattern
     /**
      * File and folder comparator. TODO Expose sorting option method
@@ -753,5 +758,40 @@ public class FileUtils
         // Only return URIs that can be opened with ContentResolver
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         return intent;
+    }
+
+    public static FileSizeDTO checkFileSize(Uri uri) {
+        FileSizeDTO result;
+        long size = sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())
+                ? getSize(sharedVariables.appContext, uri, null, null)
+                : new File(uri.getPath()).length();
+
+        if (BuildConfig.DEBUG) Log.d(sharedConstants.TAG, "Size: " + size);
+
+        if (size > sharedConstants.TOO_LARGE) {
+            result= new FileSizeDTO(true,size);
+        }else{
+            result= new FileSizeDTO(false,size);
+        }
+        return result;
+    }
+
+    public static Uri resolveOrSetContentUri(Uri uri) {
+        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
+            sharedVariables.fileWrapper.content = uri;
+            return resolveContent(uri);
+        } else {
+            sharedVariables.fileWrapper.content = null;
+            return uri;
+        }
+    }
+
+    private static Uri resolveContent(Uri uri) {
+        String path = FileUtils.getPath(sharedVariables.appContext, uri);
+        if (path != null) {
+            File temp = new File(path);
+            if (temp.canRead()) uri = Uri.fromFile(temp);
+        }
+        return uri;
     }
 }

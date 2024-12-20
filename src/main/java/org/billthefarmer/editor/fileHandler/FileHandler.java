@@ -33,12 +33,10 @@ import java.util.List;
 
 public class FileHandler implements IFileHandler {
     private static FileHandler instance;
-    private static SharedVariables sharedVariables;
-    private static SharedConstants sharedConstants;
+    private static final SharedVariables sharedVariables = SharedVariables.getInstance();
+    private static final SharedConstants sharedConstants = SharedConstants.getInstance();;
 
     private FileHandler(){
-        sharedVariables = SharedVariables.getInstance();
-        sharedConstants = SharedConstants.getInstance();
     }
     public static synchronized FileHandler getInstance() {
         if (instance == null) {
@@ -206,4 +204,5 @@ public class FileHandler implements IFileHandler {
 
         return list;
     }
+
 }
