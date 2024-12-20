@@ -32,5 +32,5 @@ jobs:
           api-level: 33
           target: google_apis
           arch: x86_64
-          emulator-options: -ram-size 4096M
           script: ./gradlew connectedCheck
+          ram-size: 4096M
