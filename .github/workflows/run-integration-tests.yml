@@ -31,7 +31,7 @@ jobs:
         with:
           api-level: 33
           target: default
-          profile: Medium Phone
+          profile: Nexus_6
           arch: x86_64
           script: ./gradlew connectedCheck
           ram-size: 4096M
