@@ -26,10 +26,31 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-33
+
+      - name: Create AVG if not cached
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          force-avd-creation: false
+          target: google_apis
+          arch: x86_64
+          ram-size: 4096M
+          script: echo "Generated AVD snapshot for caching."
+
       - name: Run Integration Tests
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 33
+          force-avd-creation: false
           target: google_apis
           arch: x86_64
           script: ./gradlew connectedCheck
