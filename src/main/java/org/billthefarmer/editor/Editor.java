@@ -1609,14 +1609,14 @@ public class Editor extends Activity
 
         // Open parent folder
         File dir = sharedVariables.fileWrapper.file.getParentFile();
-        getFile(dir);
+        displayFileList(dir);
     }
 
     // getFile
-    private void getFile(File dir)
+    private void displayFileList(File dir)
     {
         // Get list of files
-        List<File> fileList = getList(dir);
+        List<File> fileList = fileHandler.getList(dir);
         if (fileList == null)
             return;
 
@@ -1644,19 +1644,20 @@ public class Editor extends Activity
                 for (int i = 0; i <= which - sharedConstants.FOLDER_OFFSET; i++)
                     file = new File(file, dirList.get(i));
                 if (file.isDirectory())
-                    getFile(file);
+                    displayFileList(file);
                 return;
             }
 
             File selection = fileList.get(which);
             if (selection.isDirectory())
-                getFile(selection);
+                displayFileList(selection);
 
             else
                 readFile(Uri.fromFile(selection));
         });
     }
 
+    /*
     // getList
     public static List<File> getList(File dir)
     {
@@ -1693,6 +1694,8 @@ public class Editor extends Activity
 
         return list;
     }
+
+     */
 
     // openDialog
     public static void openDialog(Context context, List<String> dirList,

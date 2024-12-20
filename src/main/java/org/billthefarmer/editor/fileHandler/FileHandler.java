@@ -2,6 +2,7 @@ package org.billthefarmer.editor.fileHandler;
 
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
@@ -25,6 +26,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 
 public class FileHandler implements IFileHandler {
@@ -164,5 +168,42 @@ public class FileHandler implements IFileHandler {
             return sharedVariables.match;
         }
         return sharedConstants.UTF_8;
+    }
+
+
+    public List<File> getList(File dir)
+    {
+        List<File> list = null;
+        File[] files = dir.listFiles();
+        // Check files
+        if (files == null)
+        {
+            // Create a list with just the parent folder and the
+            // external storage folder
+            list = new ArrayList<>();
+            if (dir.getParentFile() == null)
+                list.add(dir);
+
+            else
+                list.add(dir.getParentFile());
+
+            list.add(Environment.getExternalStorageDirectory());
+
+            return list;
+        }
+
+        // Sort the files
+        Arrays.sort(files);
+        // Create a list
+        list = new ArrayList<>(Arrays.asList(files));
+
+        // Add parent folder
+        if (dir.getParentFile() == null)
+            list.add(0, dir);
+
+        else
+            list.add(0, dir.getParentFile());
+
+        return list;
     }
 }

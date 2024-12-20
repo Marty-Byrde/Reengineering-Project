@@ -38,6 +38,8 @@ import android.preference.PreferenceManager;
 import android.widget.Button;
 import android.widget.TextView;
 
+import org.billthefarmer.editor.fileHandler.FileHandler;
+import org.billthefarmer.editor.fileHandler.IFileHandler;
 import org.billthefarmer.editor.helpers.FileUtils;
 import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.preferences.EditorPreferenceParameters;
@@ -49,8 +51,6 @@ import java.util.List;
 
 public class OpenFile extends Activity
 {
-    public final static String TAG = "OpenFile";
-
     private TextView nameView;
     private TextView pathView;
 
@@ -58,7 +58,8 @@ public class OpenFile extends Activity
     private File file;
     private Uri uri;
 
-    private static SharedConstants sharedConstants;
+    private static final SharedConstants sharedConstants= SharedConstants.getInstance();;
+    private static final IFileHandler fileHandler = FileHandler.getInstance();
 
     // onCreate
     @Override
@@ -70,9 +71,6 @@ public class OpenFile extends Activity
         // Get preferences
         SharedPreferences preferences =
             PreferenceManager.getDefaultSharedPreferences(this);
-
-        //Get SharedConstants Singelton
-        sharedConstants = SharedConstants.getInstance();
 
         int theme = preferences.getInt(EditorPreferenceParameters.PREF_THEME, EditorPreferenceParameters.LIGHT);
 
@@ -253,7 +251,7 @@ public class OpenFile extends Activity
     private void getFile(File dir)
     {
         // Get list of files
-        List<File> fileList = Editor.getList(dir);
+        List<File> fileList = fileHandler.getList(dir);
         if (fileList == null)
             return;
 
