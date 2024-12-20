@@ -12,9 +12,7 @@ public class SharedVariables {
     public int size = MEDIUM;
     public Runnable updateHighlight;
     public int syntax;
-
     public Context appContext;
-
     public FileWrapper fileWrapper;
 
     private static SharedVariables instance;
@@ -23,6 +21,7 @@ public class SharedVariables {
     }
 
     public static synchronized SharedVariables getInstance() {
+
         if (instance == null) {
             instance = new SharedVariables();
         }

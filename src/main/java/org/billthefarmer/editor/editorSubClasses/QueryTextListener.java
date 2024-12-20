@@ -29,7 +29,6 @@ public class QueryTextListener implements SearchView.OnQueryTextListener
 
     // onQueryTextChange
     @Override
-    @SuppressWarnings("deprecation")
     public boolean onQueryTextChange(String newText)
     {
         // Use regex search and spannable for highlighting

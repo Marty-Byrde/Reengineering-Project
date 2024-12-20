@@ -85,6 +85,7 @@ import androidx.core.widget.TextViewCompat;
 import org.billthefarmer.editor.dto.FileSizeDTO;
 import org.billthefarmer.editor.editorSubClasses.QueryTextListener;
 import org.billthefarmer.editor.editorSubClasses.ScaleListener;
+import org.billthefarmer.editor.editorTextUtils.IEditorTextUtils;
 import org.billthefarmer.editor.fileHandler.FileHandler;
 import org.billthefarmer.editor.fileHandler.IFileHandler;
 import org.billthefarmer.editor.editorTextUtils.EditorTextUtils;
@@ -124,274 +125,273 @@ public class Editor extends Activity
     public SearchView searchView;
     private ScrollView scrollView;
     private Runnable updateWordCount;
-
     private ScaleGestureDetector scaleDetector;
     private QueryTextListener queryTextListener;
-
     public Map<String, Integer> pathMap;
     private List<String> removeList;
-
     private boolean edit = false;
-
     private int theme = LIGHT;
     private int type = MONO;
 
 
     private Map<Preferences, Object> editorPreferences;
-
     private static final IFileHandler fileHandler = FileHandler.getInstance();
     private static final SharedConstants sharedConstants= SharedConstants.getInstance();
     private static final SharedVariables sharedVariables = SharedVariables.getInstance();
-    private static final EditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
+    private static final IEditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
 
     // onCreate
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        initializePreferences();
+        initializeVariables();
+        setupTheme();
+        setupLayout();
+        initializeViews();
+        setupActionBar();
+        handleSavedInstanceState(savedInstanceState);
+        handleIntent(getIntent(), savedInstanceState);
+        setListeners();
+    }
+
+    private void initializePreferences() {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
+    }
 
+    private void initializeVariables() {
         sharedVariables.appContext = this;
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
-        if (pathSet != null)
-            for (String pathEntry : pathSet)
-                pathMap.put(pathEntry, sharedPreferences.getInt(pathEntry, 0));
+        if (pathSet != null) {
+            for (String pathEntry : pathSet) {
+                pathMap.put(pathEntry, PreferenceManager.getDefaultSharedPreferences(this).getInt(pathEntry, 0));
+            }
+        }
 
         removeList = new ArrayList<>();
+    }
 
-        ThemeHandler.setTheme(theme,this);
+    private void setupTheme() {
+        ThemeHandler.setTheme(theme, this);
+    }
 
-
-        if ((boolean) editorPreferences.get(Preferences.isContentWrapped))
+    private void setupLayout() {
+        if ((boolean) editorPreferences.get(Preferences.isContentWrapped)) {
             setContentView(R.layout.wrap);
-
-        else
+        } else {
             setContentView(R.layout.edit);
+        }
+    }
 
+    private void initializeViews() {
         textView = findViewById(R.id.text);
         scrollView = findViewById(R.id.vscroll);
+    }
 
+    private void setupActionBar() {
         getActionBar().setSubtitle(sharedVariables.match);
         getActionBar().setCustomView(R.layout.custom);
         getActionBar().setDisplayShowCustomEnabled(true);
         customView = (TextView) getActionBar().getCustomView();
+        updateWordCount = () -> editorTextUtils.wordCountText(textView, customView);
+    }
 
-        updateWordCount = () -> editorTextUtils.wordCountText(textView,customView);
-
-        if (savedInstanceState != null)
+    private void handleSavedInstanceState(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
             edit = savedInstanceState.getBoolean(sharedConstants.EDIT);
-
-        if (!edit)
-        {
-            textView.setRawInputType(InputType.TYPE_NULL);
-            textView.setTextIsSelectable(true);
         }
 
-        else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled))
+        if (!edit) {
+            textView.setRawInputType(InputType.TYPE_NULL);
+            textView.setTextIsSelectable(true);
+        } else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled)) {
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                  InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE |
+                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        }
+    }
 
-        optionSizeAndTypeface(sharedVariables.size, type);
-
-        Intent intent = getIntent();
+    private void handleIntent(Intent intent, Bundle savedInstanceState) {
         Uri intentUri = intent.getData();
 
-        switch (intent.getAction())
-        {
-        case Intent.ACTION_VIEW,Intent.ACTION_EDIT:
-            if ((savedInstanceState == null) && (intentUri != null))
-                loadFile(intentUri);
+        switch (intent.getAction()) {
+            case Intent.ACTION_VIEW:
+            case Intent.ACTION_EDIT:
+                handleViewEditIntent(savedInstanceState, intentUri);
+                break;
 
-            getActionBar().setDisplayHomeAsUpEnabled(true);
-            break;
+            case Intent.ACTION_SEND:
+                handleSendIntent(savedInstanceState, intent);
+                break;
 
-        case Intent.ACTION_SEND:
-            if (savedInstanceState == null)
-            {
-                // Get uri
-                intentUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                // Get text
-                String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                if (intentUri != null)
-                    loadFile(intentUri);
+            case "org.billthefarmer.editor.OPEN_NEW":
+                handleOpenNewIntent(savedInstanceState);
+                break;
 
-                else if (text != null)
-                {
-                    defaultFile(text);
-                    sharedVariables.changed = true;
-                }
+            case Intent.ACTION_MAIN:
+                handleMainIntent(savedInstanceState);
+                break;
 
-                else
-                    defaultFile(null);
-            }
-            break;
-
-        case "org.billthefarmer.editor.OPEN_NEW":
-            if (savedInstanceState == null)
-            {
-                defaultFile(null);
-                textView.postDelayed(() -> optionEdit(null), sharedConstants.UPDATE_DELAY);
-            }
-            break;
-
-        case Intent.ACTION_MAIN:
-            if (savedInstanceState == null)
-            {
-                if ((boolean) editorPreferences.get(Preferences.isLast))
-                    lastFile();
-
-                else
-                    defaultFile(null);
-            }
-            break;
             default:
                 break;
         }
+    }
 
-        setListeners();
+    private void handleViewEditIntent(Bundle savedInstanceState, Uri intentUri) {
+        if (savedInstanceState == null && intentUri != null) {
+            loadFile(intentUri);
+        }
+        getActionBar().setDisplayHomeAsUpEnabled(true);
+    }
+
+    private void handleSendIntent(Bundle savedInstanceState, Intent intent) {
+        if (savedInstanceState == null) {
+            Uri intentUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+
+            if (intentUri != null) {
+                loadFile(intentUri);
+            } else if (text != null) {
+                defaultFile(text);
+                sharedVariables.changed = true;
+            } else {
+                defaultFile(null);
+            }
+        }
+    }
+
+    private void handleOpenNewIntent(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            defaultFile(null);
+            textView.postDelayed(() -> optionEdit(null), sharedConstants.UPDATE_DELAY);
+        }
+    }
+
+    private void handleMainIntent(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            if ((boolean) editorPreferences.get(Preferences.isLast)) {
+                lastFile();
+            } else {
+                defaultFile(null);
+            }
+        }
     }
 
     // setListeners
-    private void setListeners()
-    {
-        scaleDetector = new ScaleGestureDetector(this, new ScaleListener(textView,this));
-        queryTextListener = new QueryTextListener(textView,scrollView);
+    private void setListeners() {
+        setupGestureDetectors();
+        setupTextViewListeners();
+        setupScrollViewListeners();
+    }
 
-        if (textView != null)
-        {
-            textView.addTextChangedListener(new TextWatcher()
-            {
-                // afterTextChanged
-                @Override
-                public void afterTextChanged(Editable s)
-                {
-                    if (!sharedVariables.changed)
-                    {
-                        sharedVariables.changed = true;
-                        invalidateOptionsMenu();
-                    }
+    private void setupGestureDetectors() {
+        scaleDetector = new ScaleGestureDetector(this, new ScaleListener(textView, this));
+        queryTextListener = new QueryTextListener(textView, scrollView);
+    }
 
-                    if (sharedVariables.updateHighlight != null)
-                    {
-                        textView.removeCallbacks(sharedVariables.updateHighlight);
-                        textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
-                    }
+    private void setupTextViewListeners() {
+        if (textView == null) return;
 
-                    if (updateWordCount != null)
-                    {
-                        textView.removeCallbacks(updateWordCount);
-                        textView.postDelayed(updateWordCount, sharedConstants.UPDATE_DELAY);
-                    }
+        textView.addTextChangedListener(createTextWatcher());
+        textView.setOnFocusChangeListener(createFocusChangeListener());
+        textView.setOnLongClickListener(createLongClickListener());
+        textView.getViewTreeObserver().addOnGlobalLayoutListener(() -> updateHighlight());
+    }
+
+    private TextWatcher createTextWatcher() {
+        return new TextWatcher() {
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (!sharedVariables.changed) {
+                    sharedVariables.changed = true;
+                    invalidateOptionsMenu();
                 }
+                updateHighlight();
+                updateWordCount();
+            }
 
-                // beforeTextChanged
-                @Override
-                public void beforeTextChanged(CharSequence s, int start,int count,int after)
-                {
-                    if (searchItem != null &&
-                        searchItem.isActionViewExpanded())
-                    {
-                        final CharSequence query = searchView.getQuery();
-
-                        textView.postDelayed(() ->
-                        {
-                            if (searchItem != null &&
-                                searchItem.isActionViewExpanded() && query != null)
-                                    searchView.setQuery(query, false);
-
-                        }, sharedConstants.UPDATE_DELAY);
-                    }
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                if (searchItem != null && searchItem.isActionViewExpanded()) {
+                    final CharSequence query = searchView.getQuery();
+                    textView.postDelayed(() -> {
+                        if (searchItem.isActionViewExpanded() && query != null) {
+                            searchView.setQuery(query, false);
+                        }
+                    }, sharedConstants.UPDATE_DELAY);
                 }
+            }
 
-                // onTextChanged
-                @Override
-                public void onTextChanged(CharSequence s,int start,int before,int count) { /* Needs to be overridden because of android*/ }
-            });
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Required override, no implementation needed.
+            }
+        };
+    }
 
-            // onFocusChange
-            textView.setOnFocusChangeListener((v, hasFocus) ->
-            {
-                // Hide keyboard
-                InputMethodManager manager = (InputMethodManager)
-                    getSystemService(INPUT_METHOD_SERVICE);
-                if (!hasFocus)
-                    manager.hideSoftInputFromWindow(v.getWindowToken(), 0);
+    private View.OnFocusChangeListener createFocusChangeListener() {
+        return (v, hasFocus) -> {
+            if (!hasFocus) {
+                InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                manager.hideSoftInputFromWindow(v.getWindowToken(), 0);
+            }
+            updateHighlight();
+        };
+    }
 
-                if (sharedVariables.updateHighlight != null)
-                {
-                    textView.removeCallbacks(sharedVariables.updateHighlight);
-                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
-                }
-            });
+    private View.OnLongClickListener createLongClickListener() {
+        return v -> {
+            if (edit) return false;
 
-            // onLongClick
-            textView.setOnLongClickListener(v ->
-            {
-                // Do nothing if already editable
-                if (edit)
-                    return false;
+            setTextViewCursorToCenter();
+            configureTextViewForEditing();
+            edit = true;
+            recreate(this);
 
-                // Get scroll position
-                int y = scrollView.getScrollY();
-                // Get height
-                int height = scrollView.getHeight();
-                // Get width
-                int width = scrollView.getWidth();
+            return false;
+        };
+    }
 
-                // Get offset
-                int line = textView.getLayout()
-                    .getLineForVertical(y + height / 2);
-                int offset = textView.getLayout()
-                    .getOffsetForHorizontal(line, (float) width / 2);
-                // Set cursor
-                textView.setSelection(offset);
+    private void setTextViewCursorToCenter() {
+        int y = scrollView.getScrollY();
+        int height = scrollView.getHeight();
+        int width = scrollView.getWidth();
 
-                // Set editable with or without suggestions
-                if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
-                    textView
-                    .setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-                else
-                    textView
-                    .setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                  InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-                // Update boolean
-                edit = true;
+        int line = textView.getLayout().getLineForVertical(y + height / 2);
+        int offset = textView.getLayout().getOffsetForHorizontal(line, (float) width / 2);
+        textView.setSelection(offset);
+    }
 
-                // Restart
-                recreate(this);
-
-                return false;
-            });
-
-            textView.getViewTreeObserver().addOnGlobalLayoutListener(() ->
-            {
-                if (sharedVariables.updateHighlight != null)
-                {
-                    textView.removeCallbacks(sharedVariables.updateHighlight);
-                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
-                }
-            });
+    private void configureTextViewForEditing() {
+        int inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+        if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled)) {
+            inputType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
         }
+        textView.setInputType(inputType);
+    }
 
-        if (scrollView != null)
-        {
-            // onScrollChange
-            scrollView.getViewTreeObserver().addOnScrollChangedListener(() ->
-            {
-                if (sharedVariables.updateHighlight != null)
-                {
-                    textView.removeCallbacks(sharedVariables.updateHighlight);
-                    textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
-                }
-            });
+    private void setupScrollViewListeners() {
+        if (scrollView == null) return;
+
+        scrollView.getViewTreeObserver().addOnScrollChangedListener(this::updateHighlight);
+    }
+
+    private void updateHighlight() {
+        if (sharedVariables.updateHighlight != null) {
+            textView.removeCallbacks(sharedVariables.updateHighlight);
+            textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
+        }
+    }
+
+    private void updateWordCount() {
+        if (updateWordCount != null) {
+            textView.removeCallbacks(updateWordCount);
+            textView.postDelayed(updateWordCount, sharedConstants.UPDATE_DELAY);
         }
     }
 
@@ -514,153 +514,141 @@ public class Editor extends Activity
 
     // onPrepareOptionsMenu
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu)
-    {
-        // Set up search view
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        setupSearchView(menu);
+        setupMenuVisibility(menu);
+        setupPreferences(menu);
+        setupTheme(menu);
+        setupFontSize(menu);
+        setupCharsets(menu);
+        setupTypefaces(menu);
+        setupRecentFiles(menu);
+
+        return true;
+    }
+
+    private void setupSearchView(Menu menu) {
         searchItem = menu.findItem(R.id.search);
         searchView = (SearchView) searchItem.getActionView();
 
-        // Set up search view options and listener
-        if (searchView != null)
-        {
+        if (searchView != null) {
             searchView.setSubmitButtonEnabled(true);
             searchView.setImeOptions(EditorInfo.IME_ACTION_GO);
             searchView.setOnQueryTextListener(queryTextListener);
         }
 
-        // Show find all item
-        menu.findItem(R.id.findAll).setVisible(menu.findItem(R.id.search).isActionViewExpanded());
+        menu.findItem(R.id.findAll).setVisible(searchItem.isActionViewExpanded());
+    }
 
+    private void setupMenuVisibility(Menu menu) {
         menu.findItem(R.id.edit).setVisible(!edit);
         menu.findItem(R.id.view).setVisible(edit);
         menu.findItem(R.id.save).setVisible(sharedVariables.changed);
+    }
 
+    private void setupPreferences(Menu menu) {
         menu.findItem(R.id.viewFile).setChecked((boolean) editorPreferences.get(Preferences.isReadOnly));
         menu.findItem(R.id.openLast).setChecked((boolean) editorPreferences.get(Preferences.isLast));
         menu.findItem(R.id.autoSave).setChecked((boolean) editorPreferences.get(Preferences.autoSaveFeature));
         menu.findItem(R.id.wrap).setChecked((boolean) editorPreferences.get(Preferences.isContentWrapped));
         menu.findItem(R.id.suggest).setChecked((boolean) editorPreferences.get(Preferences.isSuggestEnabled));
         menu.findItem(R.id.highlight).setChecked((boolean) editorPreferences.get(Preferences.isHighlightEnabled));
+    }
 
-        switch (theme)
-        {
-        case LIGHT:
-            menu.findItem(R.id.light).setChecked(true);
-            break;
-
-        case DARK:
-            menu.findItem(R.id.dark).setChecked(true);
-            break;
-
-        case SYSTEM:
-            menu.findItem(R.id.system).setChecked(true);
-            break;
-
-        case WHITE:
-            menu.findItem(R.id.white).setChecked(true);
-            break;
-
-        case BLACK:
-            menu.findItem(R.id.black).setChecked(true);
-            break;
-
-        case RETRO:
-            menu.findItem(R.id.retro).setChecked(true);
-            break;
-        default:
-            break;
-        }
-
-        switch ((int) editorPreferences.get(Preferences.FontSize))
-        {
-        case SMALL:
-            menu.findItem(R.id.small).setChecked(true);
-            break;
-
-        case MEDIUM:
-            menu.findItem(R.id.medium).setChecked(true);
-            break;
-
-        case LARGE:
-            menu.findItem(R.id.large).setChecked(true);
-            break;
-            default:
+    private void setupTheme(Menu menu) {
+        switch (theme) {
+            case LIGHT:
+                menu.findItem(R.id.light).setChecked(true);
+                break;
+            case DARK:
+                menu.findItem(R.id.dark).setChecked(true);
+                break;
+            case SYSTEM:
+                menu.findItem(R.id.system).setChecked(true);
+                break;
+            case WHITE:
+                menu.findItem(R.id.white).setChecked(true);
+                break;
+            case BLACK:
+                menu.findItem(R.id.black).setChecked(true);
+                break;
+            case RETRO:
+                menu.findItem(R.id.retro).setChecked(true);
                 break;
         }
-
-        // Get the charsets
-        Set<String> keySet = Charset.availableCharsets().keySet();
-        // Get the submenu
-        MenuItem item = menu.findItem(R.id.charset);
-        item.setTitle(sharedVariables.match);
-        SubMenu sub = item.getSubMenu();
-        sub.clear();
-        // Add charsets contained in both sets
-        sub.add(Menu.NONE, R.id.charsetItem, Menu.NONE, R.string.detect);
-        for (String key: keySet)
-            sub.add(Menu.NONE, R.id.charsetItem, Menu.NONE, key);
-
-        // Get the typefaces
-        String[] typefaces = getResources().getStringArray(R.array.typefaces);
-        item = menu.findItem(R.id.typeface);
-        sub = item.getSubMenu();
-        sub.clear();
-        // Add typefaces
-        for (String typeface: typefaces)
-            sub.add(Menu.NONE, R.id.typefaceItem, Menu.NONE, typeface);
-        sub.getItem(type).setCheckable(true);
-        sub.getItem(type).setChecked(true);
-
-        // Get a list of recent files
-        List<Long> list = new ArrayList<>();
-        Map<Long, String> map = new HashMap<>();
-
-        // Get the last modified dates
-        for (String tempPath: pathMap.keySet())
-        {
-            File temp = new File(tempPath);
-            // Check it exists
-            if (!temp.exists())
-                continue;
-
-            long last = temp.lastModified();
-            list.add(last);
-            map.put(last, tempPath);
-        }
-
-        // Sort in reverse order
-        Collections.sort(list);
-        Collections.reverse(list);
-
-        // Get the submenu
-        item = menu.findItem(R.id.openRecent);
-        sub = item.getSubMenu();
-        sub.clear();
-
-        // Add the recent files
-        for (long date : list)
-        {
-            String filePath = map.get(date);
-
-            // Remove path prefix
-            CharSequence name =
-                filePath.replaceFirst(Environment
-                                  .getExternalStorageDirectory()
-                                  .getPath() + File.separator, "");
-            // Create item
-            sub.add(Menu.NONE, R.id.fileItem, Menu.NONE, TextUtils.ellipsize
-                    (name, new TextPaint(), sharedConstants.MENU_SIZE,
-                     TextUtils.TruncateAt.MIDDLE))
-                // Use condensed title to save path as API doesn't
-                // work as documented
-                .setTitleCondensed(name);
-        }
-
-        // Add clear list item
-        sub.add(Menu.NONE, R.id.clearList, Menu.NONE, R.string.clearList);
-
-        return true;
     }
+
+    private void setupFontSize(Menu menu) {
+        switch ((int) editorPreferences.get(Preferences.FontSize)) {
+            case SMALL:
+                menu.findItem(R.id.small).setChecked(true);
+                break;
+            case MEDIUM:
+                menu.findItem(R.id.medium).setChecked(true);
+                break;
+            case LARGE:
+                menu.findItem(R.id.large).setChecked(true);
+                break;
+        }
+    }
+
+    private void setupCharsets(Menu menu) {
+        Set<String> charsets = Charset.availableCharsets().keySet();
+        MenuItem charsetItem = menu.findItem(R.id.charset);
+        charsetItem.setTitle(sharedVariables.match);
+        SubMenu charsetSubMenu = charsetItem.getSubMenu();
+        charsetSubMenu.clear();
+
+        charsetSubMenu.add(Menu.NONE, R.id.charsetItem, Menu.NONE, R.string.detect);
+        for (String charset : charsets) {
+            charsetSubMenu.add(Menu.NONE, R.id.charsetItem, Menu.NONE, charset);
+        }
+    }
+
+    private void setupTypefaces(Menu menu) {
+        String[] typefaces = getResources().getStringArray(R.array.typefaces);
+        MenuItem typefaceItem = menu.findItem(R.id.typeface);
+        SubMenu typefaceSubMenu = typefaceItem.getSubMenu();
+        typefaceSubMenu.clear();
+
+        for (String typeface : typefaces) {
+            typefaceSubMenu.add(Menu.NONE, R.id.typefaceItem, Menu.NONE, typeface);
+        }
+        typefaceSubMenu.getItem(type).setCheckable(true);
+        typefaceSubMenu.getItem(type).setChecked(true);
+    }
+
+    private void setupRecentFiles(Menu menu) {
+        List<Long> lastModifiedDates = new ArrayList<>();
+        Map<Long, String> filePathsByDate = new HashMap<>();
+
+        for (String path : pathMap.keySet()) {
+            File file = new File(path);
+            if (!file.exists()) continue;
+
+            long lastModified = file.lastModified();
+            lastModifiedDates.add(lastModified);
+            filePathsByDate.put(lastModified, path);
+        }
+
+        Collections.sort(lastModifiedDates, Collections.reverseOrder());
+
+        MenuItem recentFilesItem = menu.findItem(R.id.openRecent);
+        SubMenu recentFilesSubMenu = recentFilesItem.getSubMenu();
+        recentFilesSubMenu.clear();
+
+        for (long date : lastModifiedDates) {
+            String filePath = filePathsByDate.get(date);
+            CharSequence displayName = filePath.replaceFirst(
+                    Environment.getExternalStorageDirectory().getPath() + File.separator, "");
+            recentFilesSubMenu.add(Menu.NONE, R.id.fileItem, Menu.NONE,
+                            TextUtils.ellipsize(displayName, new TextPaint(), sharedConstants.MENU_SIZE, TextUtils.TruncateAt.MIDDLE))
+                    .setTitleCondensed(displayName);
+        }
+
+        recentFilesSubMenu.add(Menu.NONE, R.id.clearList, Menu.NONE, R.string.clearList);
+    }
+
 
     // onOptionsItemSelected
     @Override
@@ -1280,6 +1268,7 @@ public class Editor extends Activity
         item.setChecked(true);
 
         textView.setTextSize(sharedVariables.size);
+        recreate(this);
     }
 
     // setSizeAndTypeface

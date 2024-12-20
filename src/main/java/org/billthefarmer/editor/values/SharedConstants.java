@@ -46,9 +46,7 @@ public class SharedConstants {
     public final int UPDATE_DELAY = 128;
     public final int FIND_DELAY = 128;
     public final int MAX_PATHS = 10;
-
     public final int GET_TEXT = 0;
-
     public final int REQUEST_READ = 1;
     public final int REQUEST_SAVE = 2;
     public final int REQUEST_OPEN = 3;
