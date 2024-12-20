@@ -37,10 +37,11 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
@@ -79,6 +80,8 @@ import android.widget.SearchView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.core.widget.TextViewCompat;
+
 import org.billthefarmer.editor.editorSubClasses.QueryTextListener;
 import org.billthefarmer.editor.editorSubClasses.ScaleListener;
 import org.billthefarmer.editor.fileHandler.FileHandler;
@@ -98,7 +101,6 @@ import org.commonmark.renderer.html.HtmlRenderer;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.text.DateFormat;
@@ -109,21 +111,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Editor extends Activity
 {
-    /*
-    private Uri uri;
-    private File file;
-    private String path;
-    private Uri content;
-     */
     private EditText textView;
     private TextView customView;
     private MenuItem searchItem;
-    private SearchView searchView;
+    public SearchView searchView;
     private ScrollView scrollView;
     private Runnable updateWordCount;
 
@@ -141,10 +139,10 @@ public class Editor extends Activity
 
     private Map<Preferences, Object> editorPreferences;
 
-    private static IFileHandler fileHandler = FileHandler.getInstance();
-    private static SharedConstants sharedConstants= SharedConstants.getInstance();
-    private static SharedVariables sharedVariables = SharedVariables.getInstance();
-    private static EditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
+    private static final IFileHandler fileHandler = FileHandler.getInstance();
+    private static final SharedConstants sharedConstants= SharedConstants.getInstance();
+    private static final SharedVariables sharedVariables = SharedVariables.getInstance();
+    private static final EditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
 
     // onCreate
     @Override
@@ -1315,8 +1313,8 @@ public class Editor extends Activity
         // Get search string
         String search = searchView.getQuery().toString();
 
-        FindTask findTask = new FindTask(this);
-        findTask.execute(search);
+        FindTask findTask = new FindTask(this,search);
+        findTask.execute();
     }
 
     // goTo
@@ -1335,7 +1333,7 @@ public class Editor extends Activity
     // OnSeekBarChangeListener
     public interface OnSeekBarChangeListener
     {
-        abstract void onProgressChanged(SeekBar seekBar, int progress);
+        void onProgressChanged(SeekBar seekBar, int progress);
     }
 
     // GotoDialog
@@ -1382,7 +1380,6 @@ public class Editor extends Activity
     }
 
     // print
-    @SuppressWarnings("deprecation")
     private void print()
     {
         WebView webView = new WebView(this);
@@ -1417,8 +1414,7 @@ public class Editor extends Activity
             }
         });
 
-        String htmlDocument =
-                sharedConstants.HTML_HEAD + Html.toHtml(textView.getText()) + sharedConstants.HTML_TAIL;
+        String htmlDocument = sharedConstants.HTML_HEAD + Html.toHtml(textView.getText()) + sharedConstants.HTML_TAIL;
         webView.loadData(htmlDocument, sharedConstants.TEXT_HTML, sharedConstants.UTF_8);
     }
 
@@ -1549,7 +1545,6 @@ public class Editor extends Activity
     }
 
     // aboutClicked
-    @SuppressWarnings("deprecation")
     private void aboutClicked()
     {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -1579,8 +1574,7 @@ public class Editor extends Activity
         TextView text = dialog.findViewById(android.R.id.message);
         if (text != null)
         {
-            text.setTextAppearance(builder.getContext(),
-                                   android.R.style.TextAppearance_Small);
+            TextViewCompat.setTextAppearance(textView, android.R.style.TextAppearance_Small);
             text.setMovementMethod(LinkMovementMethod.getInstance());
         }
     }
@@ -1791,7 +1785,7 @@ public class Editor extends Activity
         }
     }
 
-    private void readFile(Uri uri) {
+    public void readFile(Uri uri) {
         if (uri == null) return;
 
         if (!checkPermissions(sharedConstants.REQUEST_READ)) {
@@ -2089,289 +2083,255 @@ public class Editor extends Activity
     }
 
     // checkMode
-    private void checkMode(CharSequence text)
-    {
+    private void checkMode(CharSequence text) {
         boolean change = false;
 
-        CharSequence first = text.subSequence
-            (0, Math.min(text.length(), sharedConstants.FIRST_SIZE));
-        CharSequence last = text.subSequence
-            (Math.max(0, text.length() - sharedConstants.LAST_SIZE), text.length());
-        for (CharSequence sequence: new CharSequence[]{first, last})
-        {
+        CharSequence first = text.subSequence(0, Math.min(text.length(), sharedConstants.FIRST_SIZE));
+        CharSequence last = text.subSequence(Math.max(0, text.length() - sharedConstants.LAST_SIZE), text.length());
+
+        for (CharSequence sequence : new CharSequence[]{first, last}) {
             Matcher matcher = MODE_PATTERN.matcher(sequence);
-            if (matcher.find())
-            {
+            if (matcher.find()) {
                 matcher.region(matcher.start(1), matcher.end(1));
                 matcher.usePattern(OPTION_PATTERN);
-                while (matcher.find())
-                {
+                while (matcher.find()) {
                     boolean no = "no".equals(matcher.group(2));
+                    String option = matcher.group(3);
+                    String value = matcher.group(4);
 
-                    if ("vw".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isReadOnly) == no)
-                        {
-                            editorPreferences.put(Preferences.isReadOnly, !no);
-                            change = true;
-                        }
+                    switch (option) {
+                        case "vw":
+                            change |= updatePreference(Preferences.isReadOnly.name(), no);
+                            break;
+
+                        case "ww":
+                            change |= updatePreference(Preferences.isContentWrapped.name(), no);
+                            break;
+
+                        case "sg":
+                            change |= updatePreference(Preferences.isSuggestEnabled.name(), no);
+                            break;
+
+                        case "hs":
+                            change |= updatePreference(Preferences.isHighlightEnabled.name(), no);
+                            if (change) {
+                                editorTextUtils.checkHighlight(editorPreferences, sharedVariables.fileWrapper.file, textView, scrollView);
+                            }
+                            break;
+
+                        case "th":
+                            change |= updateTheme(value);
+                            break;
+
+                        case "ts":
+                            change |= updateFontSize(value);
+                            break;
+
+                        case "tf":
+                            change |= updateTypeface(value);
+                            break;
+
+                        case "cs":
+                            if (":u".equals(value)) {
+                                sharedVariables.match = sharedConstants.UTF_8;
+                                getActionBar().setSubtitle(sharedVariables.match);
+                            }
+                            break;
+                        default:
+                            break;
                     }
-
-                    else if ("ww".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isContentWrapped) == no)
-                        {
-                            editorPreferences.put(Preferences.isContentWrapped, !no);
-                            change = true;
-                        }
-                    }
-
-                    else if ("sg".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled) == no)
-                        {
-                            editorPreferences.put(Preferences.isSuggestEnabled, !no);
-                            change = true;
-                        }
-                    }
-
-                    else if ("hs".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
-                        {
-                            editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
-                        }
-                    }
-
-                    else if ("th".equals(matcher.group(3)))
-                    {
-                        if (":l".equals(matcher.group(4)))
-                        {
-                            if (theme != LIGHT)
-                            {
-                                theme = LIGHT;
-                                change = true;
-                            }
-                        }
-
-                        else if (":d".equals(matcher.group(4)))
-                        {
-                            if (theme != DARK)
-                            {
-                                theme = DARK;
-                                change = true;
-                            }
-                        }
-
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (theme != SYSTEM)
-                            {
-                                theme = SYSTEM;
-                                change = true;
-                            }
-                        }
-
-                        else if (":w".equals(matcher.group(4)))
-                        {
-                            if (theme != WHITE)
-                            {
-                                theme = WHITE;
-                                change = true;
-                            }
-                        }
-
-                        else if (":b".equals(matcher.group(4)))
-                        {
-                            if (theme != BLACK)
-                            {
-                                theme = BLACK;
-                                change = true;
-                            }
-                        }
-
-                        else if (":r".equals(matcher.group(4)) && theme != RETRO)
-                            {
-                                theme = RETRO;
-                                change = true;
-                            }
-
-                    }
-
-                    else if ("ts".equals(matcher.group(3)))
-                    {
-                        if (":l".equals(matcher.group(4)))
-                        {
-                            if ((int) editorPreferences.get(Preferences.FontSize) != LARGE)
-                            {
-                                sharedVariables.size = LARGE;
-                                textView.setTextSize(sharedVariables.size);
-                            }
-                        }
-
-                        else if (":m".equals(matcher.group(4)))
-                        {
-                            if (sharedVariables.size != MEDIUM)
-                            {
-                                sharedVariables.size = MEDIUM;
-                                textView.setTextSize(sharedVariables.size);
-                            }
-                        }
-
-                        else if (":s".equals(matcher.group(4)) && sharedVariables.size != SMALL)
-                            {
-                                sharedVariables.size = SMALL;
-                                textView.setTextSize(sharedVariables.size);
-                            }
-
-                    }
-
-                    else if ("tf".equals(matcher.group(3)))
-                    {
-                        if (":m".equals(matcher.group(4)))
-                        {
-                            if (type != MONO)
-                            {
-                                type = MONO;
-                                textView.setTypeface(Typeface.MONOSPACE);
-                            }
-                        }
-
-                        else if (":p".equals(matcher.group(4)))
-                        {
-                            if (type != NORMAL)
-                            {
-                                type = NORMAL;
-                                textView.setTypeface(Typeface.DEFAULT);
-                            }
-                        }
-
-                        else if (":s".equals(matcher.group(4)) && type != SERIF)
-                            {
-                                type = SERIF;
-                                textView.setTypeface(Typeface.SERIF);
-                            }
-
-                    }
-
-                    else if ("cs".equals(matcher.group(3)) && ":u".equals(matcher.group(4)))
-                        {
-                            sharedVariables.match = sharedConstants.UTF_8;
-                            getActionBar().setSubtitle(sharedVariables.match);
-                        }
-
                 }
             }
         }
 
-        if (change)
+        if (change) {
             recreate(this);
+        }
+    }
+
+    private boolean updatePreference(String preferenceKey, boolean no) {
+        boolean current = (boolean) editorPreferences.get(preferenceKey);
+        if (current == no) {
+            editorPreferences.put(Preferences.valueOf(preferenceKey), !no);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean updateTheme(String value) {
+        int newTheme;
+        switch (value) {
+            case ":l":
+                newTheme = LIGHT;
+                break;
+            case ":d":
+                newTheme = DARK;
+                break;
+            case ":s":
+                newTheme = SYSTEM;
+                break;
+            case ":w":
+                newTheme = WHITE;
+                break;
+            case ":b":
+                newTheme = BLACK;
+                break;
+            case ":r":
+                newTheme = RETRO;
+                break;
+            default:
+                return false;
+        }
+        if (theme != newTheme) {
+            theme = newTheme;
+            return true;
+        }
+        return false;
+    }
+
+    private boolean updateFontSize(String value) {
+        int newSize;
+        switch (value) {
+            case ":l":
+                newSize = LARGE;
+                break;
+            case ":m":
+                newSize = MEDIUM;
+                break;
+            case ":s":
+                newSize = SMALL;
+                break;
+            default:
+                return false;
+        }
+        if (sharedVariables.size != newSize) {
+            sharedVariables.size = newSize;
+            textView.setTextSize(newSize);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean updateTypeface(String value) {
+        Typeface newTypeface;
+        int newType;
+        switch (value) {
+            case ":m":
+                newTypeface = Typeface.MONOSPACE;
+                newType = MONO;
+                break;
+            case ":p":
+                newTypeface = Typeface.DEFAULT;
+                newType = NORMAL;
+                break;
+            case ":s":
+                newTypeface = Typeface.SERIF;
+                newType = SERIF;
+                break;
+            default:
+                return false;
+        }
+        if (type != newType) {
+            type = newType;
+            textView.setTypeface(newTypeface);
+            return true;
+        }
+        return false;
     }
 
 
-    // FindTask
-    private static class FindTask
-            extends AsyncTask<String, Void, List<File>>
-    {
-        private WeakReference<Editor> editorWeakReference;
-        private String search;
 
-        // FindTask
-        public FindTask(Editor editor)
-        {
-            editorWeakReference = new WeakReference<>(editor);
+    // FindTask
+    private static class FindTask {
+        private final WeakReference<Editor> editorWeakReference;
+        private final String search;
+        private final ExecutorService executorService;
+        private final Handler mainHandler;
+
+        // Constructor
+        public FindTask(Editor editor, String search) {
+            this.editorWeakReference = new WeakReference<>(editor);
+            this.search = search;
+            this.executorService = Executors.newSingleThreadExecutor();
+            this.mainHandler = new Handler(Looper.getMainLooper());
         }
 
-        // doInBackground
-        @Override
-        protected List<File> doInBackground(String... params)
-        {
+        // Execute method
+        public void execute() {
+            executorService.execute(this::doInBackground);
+        }
+
+        // Background processing
+        private void doInBackground() {
             Pattern pattern;
-            // Create a list of matches
             List<File> matchList = new ArrayList<>();
             final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return matchList;
+            if (editor == null) return;
 
-            search = params[0];
-            // Check pattern
-            try
-            {
+            // Compile the search pattern
+            try {
                 pattern = Pattern.compile(search, Pattern.MULTILINE);
-            }
-
-            catch (Exception e)
-            {
-                return matchList;
+            } catch (Exception e) {
+                return;
             }
 
             // Get entry list
             List<File> entries = new ArrayList<>();
-            for (String path : editor.pathMap.keySet())
-            {
+            for (String path : editor.pathMap.keySet()) {
                 File entry = new File(path);
                 entries.add(entry);
             }
 
             // Check the entries
-            for (File file : entries)
-            {
-                CharSequence content = fileHandler.readFileFromFile(file);
+            for (File file : entries) {
+                CharSequence content = editor.fileHandler.readFileFromFile(file);
                 Matcher matcher = pattern.matcher(content);
-                if (matcher.find())
+                if (matcher.find()) {
                     matchList.add(file);
+                }
             }
 
-            return matchList;
+            // Pass the result to the UI thread
+            onPostExecute(matchList);
         }
 
-        // onPostExecute
-        @Override
-        protected void onPostExecute(List<File> matchList)
-        {
-            final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return;
+        // UI updates
+        private void onPostExecute(List<File> matchList) {
+            mainHandler.post(() -> {
+                final Editor editor = editorWeakReference.get();
+                if (editor == null) return;
 
-            // Build dialog
-            AlertDialog.Builder builder = new AlertDialog.Builder(editor);
-            builder.setTitle(R.string.findAll);
+                // Build dialog
+                AlertDialog.Builder builder = new AlertDialog.Builder(editor);
+                builder.setTitle(R.string.findAll);
 
-            // If found populate dialog
-            if (!matchList.isEmpty())
-            {
-                List<String> choiceList = new ArrayList<>();
-                for (File file : matchList)
-                {
-                    // Remove path prefix
-                    String path = file.getPath();
-                    String name =
-                        path.replaceFirst(Environment
-                                          .getExternalStorageDirectory()
-                                          .getPath() + File.separator, "");
+                // If found, populate dialog
+                if (!matchList.isEmpty()) {
+                    List<String> choiceList = new ArrayList<>();
+                    for (File file : matchList) {
+                        String path = file.getPath();
+                        String name = path.replaceFirst(Environment
+                                .getExternalStorageDirectory()
+                                .getPath() + File.separator, "");
+                        choiceList.add(name);
+                    }
 
-                    choiceList.add(name);
+                    String[] choices = choiceList.toArray(new String[0]);
+                    builder.setItems(choices, (dialog, which) -> {
+                        File file = matchList.get(which);
+                        Uri uri = Uri.fromFile(file);
+                        // Open the entry chosen
+                        editor.readFile(uri);
+
+                        // Restore the search text after a delay
+                        editor.searchView.postDelayed(() ->
+                                editor.searchView.setQuery(search, false), sharedConstants.FIND_DELAY);
+                    });
                 }
 
-                String[] choices = choiceList.toArray(new String[0]);
-                builder.setItems(choices, (dialog, which) ->
-                {
-                    File file = matchList.get(which);
-                    Uri uri = Uri.fromFile(file);
-                    // Open the entry chosen
-                    editor.readFile(uri);
-
-                    // Put the search text back - why it
-                    // disappears I have no idea or why I have to
-                    // do it after a delay
-                    editor.searchView.postDelayed(() ->
-                      editor.searchView.setQuery(search, false), sharedConstants.FIND_DELAY);
-                });
-            }
-
-            builder.setNegativeButton(android.R.string.cancel, null);
-            builder.show();
+                builder.setNegativeButton(android.R.string.cancel, null);
+                builder.show();
+            });
         }
     }
 
