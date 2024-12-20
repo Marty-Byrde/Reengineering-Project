@@ -1312,9 +1312,7 @@ public class Editor extends Activity
     {
         // Get search string
         String search = searchView.getQuery().toString();
-
-        FindTask findTask = new FindTask(this,search);
-        findTask.execute();
+        findTask(search);
     }
 
     // goTo
@@ -1956,52 +1954,26 @@ public class Editor extends Activity
                 promptOverwrite();
                 sharedVariables.changed = false;
             } else {
-                saveFile(sharedVariables.fileWrapper.content != null ? sharedVariables.fileWrapper.content : sharedVariables.fileWrapper.file);
+                try{
+                    fileHandler.saveFile(sharedVariables.fileWrapper.content != null ? sharedVariables.fileWrapper.content : sharedVariables.fileWrapper.file,textView.getText());
+                }catch(Exception e){
+                    handleSaveError(e);
+                }finally {
+                    invalidateOptionsMenu();
+                }
             }
         }
     }
     private void promptOverwrite() {
         alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
             if (id == DialogInterface.BUTTON_POSITIVE) {
-                saveFile(sharedVariables.fileWrapper.file);
+                try {
+                    fileHandler.saveFile(sharedVariables.fileWrapper.file,textView.getText());
+                } catch (IOException e) {
+                    handleSaveError(e);
+                }
             }
         });
-    }
-
-    private void saveFile(Object input) {
-        CharSequence textContent = textView.getText();
-        try {
-            String charset = resolveCharset();
-
-            if (input instanceof Uri) {
-                writeToUri((Uri) input, textContent, charset);
-            } else if (input instanceof File) {
-                writeToFile((File) input, textContent, charset);
-            } else {
-                throw new IllegalArgumentException("Unsupported input type. Expected Uri or File.");
-            }
-        } catch (Exception e) {
-            handleSaveError(e);
-        }
-
-        invalidateOptionsMenu();
-    }
-
-    private String resolveCharset() {
-        if (sharedVariables.match != null && !sharedVariables.match.equals(getString(R.string.detect))) {
-            return sharedVariables.match;
-        }
-        return sharedConstants.UTF_8;
-    }
-
-    private void writeToUri(Uri uri, CharSequence textContent, String charset) throws IOException {
-            fileHandler.writeToUri(textContent, charset,uri);
-
-    }
-
-    private void writeToFile(File file, CharSequence textContent, String charset) throws IOException {
-        fileHandler.writeToFile(textContent, file, charset);
-        savePath(file.getPath());
     }
 
     private void handleSaveError(Exception e) {
@@ -2242,31 +2214,14 @@ public class Editor extends Activity
 
 
     // FindTask
-    private static class FindTask {
-        private final WeakReference<Editor> editorWeakReference;
-        private final String search;
-        private final ExecutorService executorService;
-        private final Handler mainHandler;
+    public void findTask(String search) {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Handler mainHandler = new Handler(Looper.getMainLooper());
 
-        // Constructor
-        public FindTask(Editor editor, String search) {
-            this.editorWeakReference = new WeakReference<>(editor);
-            this.search = search;
-            this.executorService = Executors.newSingleThreadExecutor();
-            this.mainHandler = new Handler(Looper.getMainLooper());
-        }
-
-        // Execute method
-        public void execute() {
-            executorService.execute(this::doInBackground);
-        }
-
-        // Background processing
-        private void doInBackground() {
+        // Execute the task
+        executorService.execute(() -> {
             Pattern pattern;
             List<File> matchList = new ArrayList<>();
-            final Editor editor = editorWeakReference.get();
-            if (editor == null) return;
 
             // Compile the search pattern
             try {
@@ -2277,14 +2232,14 @@ public class Editor extends Activity
 
             // Get entry list
             List<File> entries = new ArrayList<>();
-            for (String path : editor.pathMap.keySet()) {
+            for (String path : pathMap.keySet()) {
                 File entry = new File(path);
                 entries.add(entry);
             }
 
             // Check the entries
             for (File file : entries) {
-                CharSequence content = editor.fileHandler.readFileFromFile(file);
+                CharSequence content = fileHandler.readFileFromFile(file);
                 Matcher matcher = pattern.matcher(content);
                 if (matcher.find()) {
                     matchList.add(file);
@@ -2292,17 +2247,10 @@ public class Editor extends Activity
             }
 
             // Pass the result to the UI thread
-            onPostExecute(matchList);
-        }
-
-        // UI updates
-        private void onPostExecute(List<File> matchList) {
             mainHandler.post(() -> {
-                final Editor editor = editorWeakReference.get();
-                if (editor == null) return;
 
                 // Build dialog
-                AlertDialog.Builder builder = new AlertDialog.Builder(editor);
+                AlertDialog.Builder builder = new AlertDialog.Builder(sharedVariables.appContext);
                 builder.setTitle(R.string.findAll);
 
                 // If found, populate dialog
@@ -2321,18 +2269,18 @@ public class Editor extends Activity
                         File file = matchList.get(which);
                         Uri uri = Uri.fromFile(file);
                         // Open the entry chosen
-                        editor.readFile(uri);
+                        readFile(uri);
 
                         // Restore the search text after a delay
-                        editor.searchView.postDelayed(() ->
-                                editor.searchView.setQuery(search, false), sharedConstants.FIND_DELAY);
+                        searchView.postDelayed(() ->
+                                searchView.setQuery(search, false), sharedConstants.FIND_DELAY);
                     });
                 }
 
                 builder.setNegativeButton(android.R.string.cancel, null);
                 builder.show();
             });
-        }
+        });
     }
 
 

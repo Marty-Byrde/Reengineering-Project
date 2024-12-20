@@ -178,47 +178,46 @@ subgraph cluster_1248398061 {
 	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
 <TR><TD ALIGN="LEFT" >(C)Editor</TD></TR>
 <HR/>
-<TR><TD ALIGN="LEFT" >-   content: Uri [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   customView: TextView [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   edit: boolean [1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   editorPreferences: Map&lt;Preferences, Object&gt; [0..*]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   file: File [0..1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   path: String [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   pathMap: Map&lt;String, Integer&gt; [0..*]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   queryTextListener: QueryTextListener [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   removeList: List&lt;String&gt; [0..*]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   scaleDetector: ScaleGestureDetector [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   scrollView: ScrollView [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   searchItem: MenuItem [0..1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   searchView: SearchView [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   searchView: SearchView [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   textView: EditText [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   theme: int [1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   type: int [1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   updateHighlight: Runnable [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >-   updateWordCount: Runnable [0..1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   uri: Uri [0..1]</TD></TR>
 <HR/>
 <TR><TD ALIGN="LEFT" >- aboutClicked()</TD></TR>
 <TR><TD ALIGN="LEFT" >- alertDialog(context: Context, title: int, message: int, positiveButton: int, negativeButton: int, listener: OnClickListener)</TD></TR>
 <TR><TD ALIGN="LEFT" >+ alertDialog(context: Context, title: int, message: String, neutralButton: int)</TD></TR>
 <TR><TD ALIGN="LEFT" >- autoSaveClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- buildNewAlertDialog(context: Context, title: int, message: String): Builder</TD></TR>
+<TR><TD ALIGN="LEFT" >- checkFileSize(uri: Uri): boolean</TD></TR>
 <TR><TD ALIGN="LEFT" >- checkMode(text: CharSequence)</TD></TR>
 <TR><TD ALIGN="LEFT" >- checkPermissions(requestCode: int): boolean</TD></TR>
 <TR><TD ALIGN="LEFT" >- clearList()</TD></TR>
 <TR><TD ALIGN="LEFT" >- defaultFile(text: String)</TD></TR>
 <TR><TD ALIGN="LEFT" >+ dispatchTouchEvent(event: MotionEvent): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >+ displayText(text: CharSequence)</TD></TR>
 <TR><TD ALIGN="LEFT" >- editClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >+ findAll()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ findTask(search: String)</TD></TR>
 <TR><TD ALIGN="LEFT" >- getFile()</TD></TR>
 <TR><TD ALIGN="LEFT" >- getFile(dir: File)</TD></TR>
-<TR><TD ALIGN="LEFT" >- getFileSize(uri: Uri): long</TD></TR>
 <TR><TD ALIGN="LEFT" >+ getList(dir: File): List&lt;File&gt;</TD></TR>
+<TR><TD ALIGN="LEFT" >- getPreferenceBoolean(preference: Preferences): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- getPreferenceInt(preference: Preferences): int</TD></TR>
 <TR><TD ALIGN="LEFT" >+ goTo()</TD></TR>
 <TR><TD ALIGN="LEFT" >- gotoDialog(listener: OnSeekBarChangeListener)</TD></TR>
+<TR><TD ALIGN="LEFT" >- handleSaveError(e: Exception)</TD></TR>
 <TR><TD ALIGN="LEFT" >- highlightClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- lastFile()</TD></TR>
-<TR><TD ALIGN="LEFT" >+ loadText(text: CharSequence)</TD></TR>
 <TR><TD ALIGN="LEFT" >- newFile()</TD></TR>
 <TR><TD ALIGN="LEFT" >+ onActionModeStarted(mode: ActionMode)</TD></TR>
 <TR><TD ALIGN="LEFT" ># onActivityResult(requestCode: int, resultCode: int, data: Intent)</TD></TR>
@@ -237,24 +236,29 @@ subgraph cluster_1248398061 {
 <TR><TD ALIGN="LEFT" >- openLastClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- openRecent(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- prepareExistingFile(uri: Uri)</TD></TR>
-<TR><TD ALIGN="LEFT" >- prepareFileForReading()</TD></TR>
+<TR><TD ALIGN="LEFT" >- prepareNewFileForReading()</TD></TR>
 <TR><TD ALIGN="LEFT" >- print()</TD></TR>
-<TR><TD ALIGN="LEFT" >- readFile(uri: Uri)</TD></TR>
+<TR><TD ALIGN="LEFT" >- promptOverwrite()</TD></TR>
+<TR><TD ALIGN="LEFT" >+ readFile(uri: Uri)</TD></TR>
 <TR><TD ALIGN="LEFT" >- recreate(context: Context)</TD></TR>
+<TR><TD ALIGN="LEFT" >- removeTextViewCallbacks()</TD></TR>
 <TR><TD ALIGN="LEFT" >- resolveContent(uri: Uri): Uri</TD></TR>
 <TR><TD ALIGN="LEFT" >- resolveOrSetContentUri(uri: Uri): Uri</TD></TR>
 <TR><TD ALIGN="LEFT" >- saveAs()</TD></TR>
 <TR><TD ALIGN="LEFT" >- saveAsDialog(context: Context, path: String, listener: OnClickListener)</TD></TR>
-<TR><TD ALIGN="LEFT" >- saveCheck()</TD></TR>
-<TR><TD ALIGN="LEFT" >- saveFile(input: Object)</TD></TR>
 <TR><TD ALIGN="LEFT" >- saveFileHandler()</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveOnPausePreferences(editor: Editor)</TD></TR>
 <TR><TD ALIGN="LEFT" >- savePath(path: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >- savePreferences()</TD></TR>
+<TR><TD ALIGN="LEFT" >- saveRecentPaths(editor: Editor)</TD></TR>
 <TR><TD ALIGN="LEFT" >- showFileTooLargeAlert(size: long)</TD></TR>
-<TR><TD ALIGN="LEFT" >- stopTextViewUpdates()</TD></TR>
 <TR><TD ALIGN="LEFT" >- suggestClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- textSizeClicked(item: MenuItem, selectedSize: int)</TD></TR>
 <TR><TD ALIGN="LEFT" >- themeClicked(item: MenuItem, selectedTheme: int)</TD></TR>
-<TR><TD ALIGN="LEFT" >- updateSharedVariables()</TD></TR>
+<TR><TD ALIGN="LEFT" >- updateFontSize(value: String): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- updatePreference(preferenceKey: String, no: boolean): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- updateTheme(value: String): boolean</TD></TR>
+<TR><TD ALIGN="LEFT" >- updateTypeface(value: String): boolean</TD></TR>
 <TR><TD ALIGN="LEFT" >- viewClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- viewFileClicked(item: MenuItem)</TD></TR>
 <TR><TD ALIGN="LEFT" >- viewMarkdown()</TD></TR>
@@ -284,7 +288,7 @@ EditorTextUtils700707585[
 <HR/>
 <TR><TD ALIGN="LEFT" >-   sharedVariables: SharedVariables [0..1]</TD></TR>
 <HR/>
-<TR><TD ALIGN="LEFT" >+ checkHighlight(editorPreferences: Map, file: File, textView: EditText, scrollView: ScrollView, updateHighlight: Runnable)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ checkHighlight(editorPreferences: Map, file: File, textView: EditText, scrollView: ScrollView)</TD></TR>
 <TR><TD ALIGN="LEFT" >+ highlightText(scrollView: ScrollView, textView: EditText)</TD></TR>
 <TR><TD ALIGN="LEFT" >+ wordCountText(textView: TextView, customView: TextView)</TD></TR>
 </TABLE>>
@@ -298,10 +302,13 @@ FileHandler246254184[
 	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
 <TR><TD ALIGN="LEFT" >(C)FileHandler</TD></TR>
 <HR/>
-<TR><TD ALIGN="LEFT" >+ readFileContent(context: Context, uri: Uri): CharSequence</TD></TR>
+<TR><TD ALIGN="LEFT" >- createReader(context: Context, inputStream: InputStream): BufferedReader</TD></TR>
 <TR><TD ALIGN="LEFT" >+ readFileFromFile(file: File): CharSequence</TD></TR>
-<TR><TD ALIGN="LEFT" >+ writeToFile(text: CharSequence, file: File, charset: String)</TD></TR>
-<TR><TD ALIGN="LEFT" >+ writeToOutputStream(text: CharSequence, os: OutputStream, charset: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >+ readFileFromUri(uri: Uri): CharSequence</TD></TR>
+<TR><TD ALIGN="LEFT" >- resolveCharset(): String</TD></TR>
+<TR><TD ALIGN="LEFT" >+ saveFile(input: Object, textContent: CharSequence)</TD></TR>
+<TR><TD ALIGN="LEFT" >- writeToFile(text: CharSequence, file: File, charset: String)</TD></TR>
+<TR><TD ALIGN="LEFT" >- writeToUri(text: CharSequence, charset: String, uri: Uri)</TD></TR>
 </TABLE>>
 	style=filled
 	margin=0
@@ -342,16 +349,14 @@ FileUtils453080337[
 	fillcolor="#FFFFFF"
 ];
 
-FindTask1614754787[
+FileWrapper1280064648[
 	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
-<TR><TD ALIGN="LEFT" >(C)FindTask</TD></TR>
+<TR><TD ALIGN="LEFT" >(C)FileWrapper</TD></TR>
 <HR/>
-<TR><TD ALIGN="LEFT" >-   editorWeakReference: WeakReference&lt;Editor&gt; [0..1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   pattern: Pattern [0..1]</TD></TR>
-<TR><TD ALIGN="LEFT" >-   search: String [0..1]</TD></TR>
-<HR/>
-<TR><TD ALIGN="LEFT" ># doInBackground(params: String...): List&lt;File&gt;</TD></TR>
-<TR><TD ALIGN="LEFT" ># onPostExecute(matchList: List&lt;File&gt;)</TD></TR>
+<TR><TD ALIGN="LEFT" >+   content: Uri [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   file: File [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   path: String [0..1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   uri: Uri [0..1]</TD></TR>
 </TABLE>>
 	style=filled
 	margin=0
@@ -381,30 +386,18 @@ QueryTextListener2005210601[
 	fillcolor="#FFFFFF"
 ];
 
-ReadTask2005210601[
-	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
-<TR><TD ALIGN="LEFT" >(C)ReadTask</TD></TR>
-<HR/>
-<TR><TD ALIGN="LEFT" >-   editorWeakReference: WeakReference&lt;Editor&gt; [0..1]</TD></TR>
-<HR/>
-<TR><TD ALIGN="LEFT" ># doInBackground(uris: Uri...): CharSequence</TD></TR>
-<TR><TD ALIGN="LEFT" ># onPostExecute(result: CharSequence)</TD></TR>
-</TABLE>>
-	style=filled
-	margin=0
-	shape=plaintext
-	fillcolor="#FFFFFF"
-];
-
 SharedVariables1280064648[
 	label=<<TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" CELLSPACING="0">
 <TR><TD ALIGN="LEFT" >(C)SharedVariables</TD></TR>
 <HR/>
+<TR><TD ALIGN="LEFT" >+   appContext: Context [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   changed: boolean [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   fileWrapper: FileWrapper [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   match: String [0..1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   modified: long [1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   size: int [1]</TD></TR>
 <TR><TD ALIGN="LEFT" >+   syntax: int [1]</TD></TR>
+<TR><TD ALIGN="LEFT" >+   updateHighlight: Runnable [0..1]</TD></TR>
 </TABLE>>
 	style=filled
 	margin=0
@@ -499,18 +492,16 @@ subgraph cluster_1898238245 {
 CharsetDetector498462169 -> CharsetMatch498462169[label="getString() -> getString()"];
 CharsetDetector498462169 -> CharsetRecognizer498462169[label="detectAll() -> match()"];
 Editor1171887016 -> EditorPreferenceHandler847954334[label="onCreate() -> fetchPreferences()"];
-Editor1171887016 -> FileHandler246254184[label="readFile() -> readFileContent()"];
+Editor1171887016 -> FileHandler246254184[arrowhead=none];
 Editor1171887016 -> FileProvider308050535[label="viewMarkdown() -> getUriForFile()"];
 Editor1171887016 -> QueryTextListener2005210601[label="queryTextListener
 [0..1]"];
 EditorTextUtils700707585 -> SharedVariables1280064648[label="sharedVariables
 [0..1]"];
 FileProvider308050535 -> SimplePathStrategy1805940780[label="parsePathStrategy() -> addRoot()"];
-FindTask1614754787 -> Editor1171887016[label="editorWeakReference
-[0..1]"];
 KotlinIntegrationTest1898238245 -> Editor1171887016[label="activityRule
 [1]"];
-ReadTask2005210601 -> Editor1171887016[label="editorWeakReference
+SharedVariables1280064648 -> FileWrapper1280064648[label="fileWrapper
 [0..1]"];
     
 }

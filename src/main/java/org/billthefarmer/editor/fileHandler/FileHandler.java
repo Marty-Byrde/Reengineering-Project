@@ -1,6 +1,7 @@
 package org.billthefarmer.editor.fileHandler;
 
 import android.content.Context;
+import android.content.DialogInterface;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Log;
@@ -118,7 +119,7 @@ public class FileHandler implements IFileHandler {
     }
 
 
-    public void writeToFile(CharSequence text, File file,String charset) throws IOException {
+    private void writeToFile(CharSequence text, File file,String charset) throws IOException {
         file.getParentFile().mkdirs();
 
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), charset));
@@ -129,7 +130,7 @@ public class FileHandler implements IFileHandler {
         sharedVariables.modified = file.lastModified();
     }
 
-    public void writeToUri(CharSequence text, String charset,Uri uri) throws IOException {
+    private void writeToUri(CharSequence text, String charset,Uri uri) throws IOException {
 
         OutputStream outputStream = sharedVariables.appContext.getContentResolver().openOutputStream(uri, "rwt");
         BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, charset));
@@ -144,5 +145,24 @@ public class FileHandler implements IFileHandler {
     {
         File documents = new File(Environment.getExternalStorageDirectory(), sharedConstants.DOCUMENTS);
         return new File(documents, sharedConstants.NEW_FILE);
+    }
+
+    public void saveFile(Object input,CharSequence textContent) throws IOException {
+
+            String charset = resolveCharset();
+
+            if (input instanceof Uri) {
+                writeToUri(textContent, charset,(Uri) input);
+            } else if (input instanceof File) {
+                writeToFile( textContent, (File) input,charset);
+            } else {
+                throw new IllegalArgumentException("Unsupported input type. Expected Uri or File.");
+            }
+    }
+    private String resolveCharset() {
+        if (sharedVariables.match != null && !sharedVariables.match.equals(sharedVariables.appContext.getString(R.string.detect))) {
+            return sharedVariables.match;
+        }
+        return sharedConstants.UTF_8;
     }
 }
