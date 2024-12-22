@@ -17,6 +17,7 @@ import java.io.File;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.billthefarmer.editor.helpers.SyntaxPatternParameters.*;
 
@@ -48,70 +49,69 @@ public class EditorTextUtils implements IEditorTextUtils{
         }
     }
 
-    public void checkHighlight(Map editorPreferences, File file,EditText textView,ScrollView scrollView)
-    {
-        // No syntax
+    public void checkHighlight(Map editorPreferences, File file, EditText textView, ScrollView scrollView) {
+        // Set default syntax
         sharedVariables.syntax = NO_SYNTAX;
 
-        // Check extension
-        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) && file != null)
-        {
-            String ext = FileUtils.getExtension(file.getName());
-            if (ext != null)
-            {
-                String type = FileUtils.getMimeType(file);
+        // Validate highlighting preferences and file existence
+        if (Boolean.TRUE.equals(editorPreferences.get(Preferences.isHighlightEnabled)) && file != null) {
+            String extension = FileUtils.getExtension(file.getName());
 
-                if (ext.matches(CC_EXT))
-                    sharedVariables.syntax = CC_SYNTAX;
+            if (extension != null) {
+                String mimeType = FileUtils.getMimeType(file);
+                sharedVariables.syntax = determineSyntax(extension, mimeType);
 
-                else if (ext.matches(HTML_EXT))
-                    sharedVariables.syntax = HTML_SYNTAX;
-
-                else if (ext.matches(CSS_EXT))
-                    sharedVariables.syntax = CSS_SYNTAX;
-
-                else if (ext.matches(ORG_EXT))
-                    sharedVariables.syntax = ORG_SYNTAX;
-
-                else if (ext.matches(MD_EXT))
-                    sharedVariables.syntax = MD_SYNTAX;
-
-                else if (ext.matches(SH_EXT))
-                    sharedVariables.syntax = SH_SYNTAX;
-
-                else if (!SharedConstants.getInstance().TEXT_PLAIN.equals(type))
-                    sharedVariables.syntax = DEF_SYNTAX;
-
-                else
-                    sharedVariables.syntax = NO_SYNTAX;
-
-                // Add callback
-                if (textView != null && sharedVariables.syntax != NO_SYNTAX)
-                {
-                    if (sharedVariables.updateHighlight == null) {
-                        sharedVariables.updateHighlight = () -> highlightText(scrollView,textView);
-                    }
-
-                    textView.removeCallbacks(sharedVariables.updateHighlight);
-                    textView.postDelayed(sharedVariables.updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
-
+                // Setup highlighting callback if syntax is detected
+                if (textView != null && sharedVariables.syntax != NO_SYNTAX) {
+                    setupHighlightingCallback(textView, scrollView);
                     return;
                 }
             }
         }
 
-        // Remove highlighting
-        if (sharedVariables.updateHighlight != null)
-        {
+        // Remove highlighting if applicable
+        removeHighlightingCallback(textView);
+    }
+
+    private int determineSyntax(String extension, String mimeType) {
+        if (extension.matches(CC_EXT)) {
+            return CC_SYNTAX;
+        } else if (extension.matches(HTML_EXT)) {
+            return HTML_SYNTAX;
+        } else if (extension.matches(CSS_EXT)) {
+            return CSS_SYNTAX;
+        } else if (extension.matches(ORG_EXT)) {
+            return ORG_SYNTAX;
+        } else if (extension.matches(MD_EXT)) {
+            return MD_SYNTAX;
+        } else if (extension.matches(SH_EXT)) {
+            return SH_SYNTAX;
+        } else if (!SharedConstants.getInstance().TEXT_PLAIN.equals(mimeType)) {
+            return DEF_SYNTAX;
+        } else {
+            return NO_SYNTAX;
+        }
+    }
+
+    private void setupHighlightingCallback(EditText textView, ScrollView scrollView) {
+        if (sharedVariables.updateHighlight == null) {
+            sharedVariables.updateHighlight = () -> highlightText(scrollView, textView);
+        }
+
+        textView.removeCallbacks(sharedVariables.updateHighlight);
+        textView.postDelayed(sharedVariables.updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
+    }
+
+    private void removeHighlightingCallback(EditText textView) {
+        if (sharedVariables.updateHighlight != null) {
             textView.removeCallbacks(sharedVariables.updateHighlight);
             textView.postDelayed(sharedVariables.updateHighlight, SharedConstants.getInstance().UPDATE_DELAY);
-
             sharedVariables.updateHighlight = null;
         }
     }
 
-    public void highlightText(ScrollView scrollView, EditText textView)
-    {
+
+    public void highlightText(ScrollView scrollView, EditText textView) {
         // Get visible extent
         int top = scrollView.getScrollY();
         int height = scrollView.getHeight();
@@ -122,456 +122,93 @@ public class EditorTextUtils implements IEditorTextUtils{
 
         line = textView.getLayout().getLineForVertical(top + height);
         int end = textView.getLayout().getLineEnd(line);
-        int last = (line == 0)? end:
-                textView.getLayout().getLineStart(line - 1);
+        int last = (line == 0) ? end : textView.getLayout().getLineStart(line - 1);
 
-        // Move selection if outside range
-        if (textView.getSelectionStart() < start)
+        // Adjust selection if out of range
+        if (textView.getSelectionStart() < start) {
             textView.setSelection(first);
-
-        if (textView.getSelectionStart() > end)
+        } else if (textView.getSelectionStart() > end) {
             textView.setSelection(last);
+        }
 
-        // Get editable
+        // Get editable content
         Editable editable = textView.getEditableText();
 
-        // Get current spans
-        ForegroundColorSpan spans[] =
-                editable.getSpans(start, end, ForegroundColorSpan.class);
-        // Remove spans
-        for (ForegroundColorSpan span: spans)
-            editable.removeSpan(span);
+        // Clear existing spans
+        removeExistingSpans(editable, start, end, ForegroundColorSpan.class);
 
-        Matcher matcher;
-
-        switch (sharedVariables.syntax)
-        {
+        // Highlight text based on syntax
+        switch (sharedVariables.syntax) {
             case NO_SYNTAX:
-                // Get current spans
-                spans = editable.getSpans(0, editable.length(),
-                        ForegroundColorSpan.class);
-                // Remove spans
-                for (ForegroundColorSpan span: spans)
-                    editable.removeSpan(span);
+                removeExistingSpans(editable, 0, editable.length(), ForegroundColorSpan.class);
                 break;
-
             case CC_SYNTAX:
-                matcher = KEYWORDS.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(TYPES);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CLASS);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.BLUE);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(NUMBER);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.YELLOW);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(ANNOTATION);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CONSTANT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.LTGRAY);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(OPERATOR);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CC_COMMENT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, KEYWORDS, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, TYPES, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, CLASS, Color.BLUE);
+                applySyntaxHighlighting(editable, start, end, NUMBER, Color.YELLOW);
+                applySyntaxHighlighting(editable, start, end, ANNOTATION, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, CONSTANT, Color.LTGRAY);
+                applySyntaxHighlighting(editable, start, end, OPERATOR, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, CC_COMMENT, Color.RED);
                 break;
-
             case HTML_SYNTAX:
-                matcher = HTML_TAGS.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(HTML_ATTRS);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(QUOTED);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(HTML_COMMENT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, HTML_TAGS, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, HTML_ATTRS, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, QUOTED, Color.RED);
+                applySyntaxHighlighting(editable, start, end, HTML_COMMENT, Color.RED);
                 break;
-
             case CSS_SYNTAX:
-                matcher = CSS_STYLES.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CSS_HEX);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CC_COMMENT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, CSS_STYLES, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, CSS_HEX, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, CC_COMMENT, Color.RED);
                 break;
-
             case ORG_SYNTAX:
-                matcher = ORG_HEADER.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.BLUE);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-
-                matcher.region(start, end).usePattern(ORG_EMPH);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(ORG_LINK);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(ORG_COMMENT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, ORG_HEADER, Color.BLUE);
+                applySyntaxHighlighting(editable, start, end, ORG_EMPH, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, ORG_LINK, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, ORG_COMMENT, Color.RED);
                 break;
-
             case MD_SYNTAX:
-                matcher = MD_HEADER.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.BLUE);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(MD_LINK);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(MD_EMPH);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(MD_CODE);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, MD_HEADER, Color.BLUE);
+                applySyntaxHighlighting(editable, start, end, MD_LINK, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, MD_EMPH, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, MD_CODE, Color.CYAN);
                 break;
-
             case SH_SYNTAX:
-                matcher = KEYWORDS.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(NUMBER);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.YELLOW);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CONSTANT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.LTGRAY);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(SH_VAR);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(OPERATOR);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(QUOTED);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(SH_COMMENT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, KEYWORDS, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, NUMBER, Color.YELLOW);
+                applySyntaxHighlighting(editable, start, end, CONSTANT, Color.LTGRAY);
+                applySyntaxHighlighting(editable, start, end, SH_VAR, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, OPERATOR, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, QUOTED, Color.RED);
+                applySyntaxHighlighting(editable, start, end, SH_COMMENT, Color.RED);
                 break;
-
             case DEF_SYNTAX:
-                matcher = KEYWORDS.matcher(editable);
-                matcher.region(start, end);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.CYAN);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(TYPES);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.MAGENTA);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CLASS);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.BLUE);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(NUMBER);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.YELLOW);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(CONSTANT);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.LTGRAY);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
-
-                matcher.region(start, end).usePattern(QUOTED);
-                while (matcher.find())
-                {
-                    ForegroundColorSpan span = new
-                            ForegroundColorSpan(Color.RED);
-
-                    // Highlight it
-                    editable.setSpan(span, matcher.start(), matcher.end(),
-                            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                }
+                applySyntaxHighlighting(editable, start, end, KEYWORDS, Color.CYAN);
+                applySyntaxHighlighting(editable, start, end, TYPES, Color.MAGENTA);
+                applySyntaxHighlighting(editable, start, end, CLASS, Color.BLUE);
+                applySyntaxHighlighting(editable, start, end, NUMBER, Color.YELLOW);
+                applySyntaxHighlighting(editable, start, end, CONSTANT, Color.LTGRAY);
+                applySyntaxHighlighting(editable, start, end, QUOTED, Color.RED);
                 break;
         }
     }
+
+    private void removeExistingSpans(Editable editable, int start, int end, Class<?> spanType) {
+        Object[] spans = editable.getSpans(start, end, spanType);
+        for (Object span : spans) {
+            editable.removeSpan(span);
+        }
+    }
+
+    private void applySyntaxHighlighting(Editable editable, int start, int end, Pattern pattern, int color) {
+        Matcher matcher = pattern.matcher(editable);
+        matcher.region(start, end);
+        while (matcher.find()) {
+            ForegroundColorSpan span = new ForegroundColorSpan(color);
+            editable.setSpan(span, matcher.start(), matcher.end(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+    }
+
 }
