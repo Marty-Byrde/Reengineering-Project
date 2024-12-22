@@ -29,6 +29,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -74,55 +76,45 @@ public class FileHandler implements IFileHandler {
     }
 
     public CharSequence readFileFromUri(Uri uri) {
-        Context context = sharedVariables.appContext;
-        if (context == null || uri == null) {
+        if (uri == null) {
+            return "";
+        }
+
+        Context context = SharedVariables.getInstance().appContext;
+        if (context == null) {
             return "";
         }
 
         StringBuilder stringBuilder = new StringBuilder();
         SharedVariables sharedVariables = SharedVariables.getInstance();
         SharedConstants sharedConstants = SharedConstants.getInstance();
-
+        
         if (sharedVariables.match == null) {
             sharedVariables.match = sharedConstants.UTF_8;
         }
 
-        try (BufferedInputStream inputStream = new BufferedInputStream(context.getContentResolver().openInputStream(uri))) {
-            BufferedReader reader = createReader(context, inputStream);
+        try (BufferedInputStream inputStream = new BufferedInputStream(context.getContentResolver().openInputStream(uri));
+             BufferedReader reader = createReader(context, inputStream)) {
 
             String line;
             while ((line = reader.readLine()) != null) {
                 stringBuilder.append(line).append(System.lineSeparator());
             }
 
+        } catch (IOException e) {
+            Log.e(sharedConstants.TAG, "Error reading file", e);
         } catch (Exception e) {
-            Log.e(sharedConstants.TAG, "Error reading file: " + e.getMessage(), e);
+            Log.e(sharedConstants.TAG, "Unexpected error: " + e.getMessage(), e);
         }
 
         return stringBuilder;
     }
 
     private BufferedReader createReader(Context context, InputStream inputStream) throws IOException {
-        if (sharedVariables.match.equals(context.getString(R.string.detect))) {
-            // Detect charset using CharsetDetector with UTF-8 as a hint
-            CharsetMatch match = new CharsetDetector()
-                    .setDeclaredEncoding(sharedConstants.UTF_8)
-                    .setText(inputStream)
-                    .detect();
-
-            if (match != null) {
-                sharedVariables.match = match.getName();
-
-                if (BuildConfig.DEBUG) {
-                    Log.d(sharedConstants.TAG, "Detected Charset: " + sharedVariables.match);
-                }
-                return new BufferedReader(match.getReader());
-            }
-        }
-
-        return new BufferedReader(new InputStreamReader(inputStream, sharedVariables.match));
+        SharedVariables sharedVariables = SharedVariables.getInstance();
+        Charset charset = sharedVariables.match != null ? Charset.forName(sharedVariables.match) : StandardCharsets.UTF_8;
+        return new BufferedReader(new InputStreamReader(inputStream, charset));
     }
-
 
     private void writeToFile(CharSequence text, File file,String charset) throws IOException {
         file.getParentFile().mkdirs();
