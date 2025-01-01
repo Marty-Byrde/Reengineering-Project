@@ -1098,7 +1098,7 @@ public class Editor extends Activity
     }
 
     // getNewFile
-    private static File getNewFile()
+    public static File getNewFile()
     {
         File documents = new
             File(Environment.getExternalStorageDirectory(), DOCUMENTS);
@@ -2092,7 +2092,7 @@ public class Editor extends Activity
     }
 
     // saveFile
-    private void saveFile()
+    public void saveFile()
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
         {
