@@ -1,4 +1,4 @@
-package example;
+package editor;
 
 import android.content.Context;
 import android.support.v4.content.FileProvider;
@@ -23,7 +23,7 @@ public class FileProviderTest {
     public void setUp() {
         fileProvider = new FileProvider();
         context = ApplicationProvider.getApplicationContext();
-    }
+     }
 
     @Test
     public void testFileProviderInitialization() {
