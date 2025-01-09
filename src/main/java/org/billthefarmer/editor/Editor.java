@@ -2158,7 +2158,7 @@ public class Editor extends Activity
     }
 
     // write
-    private void write(CharSequence text, File file)
+    public void write(CharSequence text, File file)
     {
         file.getParentFile().mkdirs();
 
@@ -3178,7 +3178,7 @@ public class Editor extends Activity
     }
 
     // readFile
-    private CharSequence readFile(File file)
+    public CharSequence readFile(File file)
     {
         StringBuilder text = new StringBuilder();
         // Open file
