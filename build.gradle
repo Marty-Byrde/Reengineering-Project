@@ -17,7 +17,6 @@ plugins {
     id "jacoco"
     id "org.sonarqube" version "3.5.0.2730"
     id 'org.jetbrains.kotlin.android' version '2.0.0'
-    id 'org.jetbrains.kotlin.plugin.compose' version '2.0.0'
 }
 
 allprojects {
@@ -35,10 +34,6 @@ android {
     compileSdkVersion 34
     namespace "org.billthefarmer.editor"
 
-    buildFeatures {
-        buildConfig = true
-    }
-
     defaultConfig {
         applicationId "org.billthefarmer.editor"
         minSdkVersion 21
@@ -54,16 +49,23 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        buildConfig = true
+        compose = false
+    }
+
     lintOptions {
         disable 'ContentDescription', 'OldTargetApi', 'UnusedResources',
                 'NonConstantResourceId', 'ExpiredTargetSdkVersion', 'AndroidGradlePluginVersion'
-        // abortOnError false
     }
 
     testOptions {
@@ -73,19 +75,16 @@ android {
         }
     }
 
-    packagingOptions { resources.excludes.add("META-INF/*") }
-    kotlinOptions {
-        jvmTarget = '17'
-    }
-    buildFeatures {
-        compose true
+    packagingOptions {
+        resources.excludes.add("META-INF/LICENSE*")
+        resources.excludes.add("META-INF/NOTICE*")
     }
 }
 
 task jacocoTestReport(type: JacocoReport, dependsOn: 'testDebugUnitTest') {
 
     reports {
-//        xml.enabled true
+        //xml.enabled = true
     }
 
     def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
@@ -106,7 +105,6 @@ sonarqube {
         property "sonar.issue.ignore.block", "e1"
         property "sonar.issue.ignore.block.e1.beginBlockRegexp", "\\s*//\\s*START-NOSCAN"
         property "sonar.issue.ignore.block.e1.endBlockRegexp", "\\s*//\\s*END-NOSCAN"
-
     }
 }
 
@@ -114,9 +112,7 @@ dependencies {
     // Used by the Editor
     implementation 'org.commonmark:commonmark:0.22.0'
 
-    // Android Compose for Kotlin Compiler
-    implementation 'androidx.compose.runtime:runtime:1.7.5'
-
+    // AndroidX Core and Material
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
@@ -131,26 +127,23 @@ dependencies {
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0-RC2'
 
     // Instrumented Tests
-    // Kotlin Coroutines testing support (we added this in the last tutorial)
     androidTestImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0-RC2'
-
-    // Since this needs to run on an Android device we must add this one to get the RunWith(AndroidJUnit4::class)
     androidTestImplementation "androidx.test.ext:junit:1.1.5"
-
-    // To test LiveData we also need Arch Core
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
     androidTestImplementation "androidx.arch.core:core-testing:2.2.0"
-
-    // Assertion library for more readable assertions
     androidTestImplementation "com.google.truth:truth:1.2.0"
-
-    // Espresso Core - needed for AndroidJUnit4 runner
     androidTestImplementation "androidx.test.espresso:espresso-core:3.5.1"
 
     // Lifecycle
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
     implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.2"
     implementation "androidx.lifecycle:lifecycle-extensions:2.2.0"
-
 }
 
-
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.test:core:1.5.0'
+        force 'androidx.test.espresso:espresso-core:3.5.1'
+    }
+}
