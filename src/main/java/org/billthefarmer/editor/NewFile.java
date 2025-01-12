@@ -27,9 +27,11 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 
+import org.billthefarmer.editor.values.SharedConstants;
+
 public class NewFile extends Activity
 {
-    public final static String TAG = "NewFile";
+    private static SharedConstants sharedConstants;
 
     // onCreate
     @Override
@@ -37,11 +39,13 @@ public class NewFile extends Activity
     protected void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
+        //Get SharedConstants Singelton
+        sharedConstants = SharedConstants.getInstance();
 
         // Create the shortcut intent
         Intent shortcut = new
             Intent(this, Editor.class);
-        shortcut.setAction(Editor.OPEN_NEW);
+        shortcut.setAction(sharedConstants.OPEN_NEW);
         shortcut.addCategory(Intent.CATEGORY_DEFAULT);
 
         // Create the shortcut

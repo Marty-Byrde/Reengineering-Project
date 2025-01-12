@@ -23,8 +23,7 @@
 
 package org.billthefarmer.editor;
 
-import static androidx.activity.result.ActivityResultCallerKt.registerForActivityResult;
-import static org.billthefarmer.editor.SyntaxPatternParameters.*;
+import static org.billthefarmer.editor.helpers.SyntaxPatternParameters.*;
 import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
 
 import android.Manifest;
@@ -36,13 +35,13 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
@@ -52,13 +51,10 @@ import android.text.Editable;
 import android.text.Html;
 import android.text.InputType;
 import android.text.SpannableStringBuilder;
-import android.text.Spanned;
 import android.text.TextPaint;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
-import android.text.style.BackgroundColorSpan;
-import android.text.style.ForegroundColorSpan;
 import android.util.Log;
 import android.view.ActionMode;
 import android.view.KeyEvent;
@@ -84,26 +80,29 @@ import android.widget.SearchView;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-import com.ibm.icu.text.CharsetDetector;
-import com.ibm.icu.text.CharsetMatch;
+import androidx.core.widget.TextViewCompat;
 
+import org.billthefarmer.editor.dto.FileSizeDTO;
+import org.billthefarmer.editor.editorSubClasses.QueryTextListener;
+import org.billthefarmer.editor.editorSubClasses.ScaleListener;
+import org.billthefarmer.editor.editorTextUtils.IEditorTextUtils;
+import org.billthefarmer.editor.fileHandler.FileHandler;
+import org.billthefarmer.editor.fileHandler.IFileHandler;
+import org.billthefarmer.editor.editorTextUtils.EditorTextUtils;
+import org.billthefarmer.editor.helpers.FileAdapter;
+import org.billthefarmer.editor.helpers.ThemeHandler;
+import org.billthefarmer.editor.helpers.FileUtils;
+import org.billthefarmer.editor.values.SharedConstants;
+import org.billthefarmer.editor.values.SharedVariables;
 import org.billthefarmer.editor.preferences.EditorPreferenceHandler;
 import org.billthefarmer.editor.preferences.Preferences;
 import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.lang.ref.WeakReference;
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -111,360 +110,288 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Editor extends Activity
 {
-    public final static String TAG = "Editor";
-
-    public final static String PATH = "path";
-    public final static String EDIT = "edit";
-    public final static String MATCH = "match";
-    public final static String CHANGED = "changed";
-    public final static String CONTENT = "content";
-    public final static String MODIFIED = "modified";
-    public final static String MONOSPACE = "monospace";
-
-    public final static String DOCUMENTS = "Documents";
-    public final static String FOLDER = "Folder";
-    public final static String UTF_8 = "UTF-8";
-
-    public final static String NEW_FILE = "Untitled.txt";
-    public final static String EDIT_FILE = "Editor.txt";
-    public final static String HTML_FILE = "Editor.html";
-
-    public final static String TEXT_HTML = "text/html";
-    public final static String TEXT_PLAIN = "text/plain";
-    public final static String TEXT_WILD = "text/*";
-    
-    public final static String BRACKET_CHARS = "([{<";
-
-    public final static String HTML_HEAD =
-        "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n" +
-        "<meta name=\"viewport\" content=\"width=device-width, " +
-        "initial-scale=1.0\">\n</head>\n<body>\n";
-    public final static String HTML_TAIL = "\n</body>\n</html>\n";
-    public final static String FILE_PROVIDER =
-        "org.billthefarmer.editor.fileprovider";
-    public final static String OPEN_NEW =
-        "org.billthefarmer.editor.OPEN_NEW";
-
-
-
-
-    public final static int LAST_SIZE = 256;
-    public final static int MENU_SIZE = 192;
-    public final static int FIRST_SIZE = 256;
-    public final static int TOO_LARGE = 524288;
-    public final static int FOLDER_OFFSET = 0x7d000000;
-    public final static int POSITION_DELAY = 128;
-    public final static int UPDATE_DELAY = 128;
-    public final static int FIND_DELAY = 128;
-    public final static int MAX_PATHS = 10;
-
-    public final static int GET_TEXT = 0;
-
-    public final static int REQUEST_READ = 1;
-    public final static int REQUEST_SAVE = 2;
-    public final static int REQUEST_OPEN = 3;
-
-    public final static int OPEN_DOCUMENT   = 1;
-    public final static int CREATE_DOCUMENT = 2;
-
-
-    private Uri uri;
-    private File file;
-    private String path;
-    private Uri content;
-    private String match;
     private EditText textView;
     private TextView customView;
     private MenuItem searchItem;
-    private SearchView searchView;
+    public SearchView searchView;
     private ScrollView scrollView;
-    private Runnable updateHighlight;
     private Runnable updateWordCount;
-
     private ScaleGestureDetector scaleDetector;
     private QueryTextListener queryTextListener;
-
-    private Map<String, Integer> pathMap;
+    public Map<String, Integer> pathMap;
     private List<String> removeList;
-
-
     private boolean edit = false;
-
-
-    private boolean changed = false;
-
-    private long modified;
-
     private int theme = LIGHT;
-    private int size = MEDIUM;
     private int type = MONO;
 
-    private int syntax;
 
     private Map<Preferences, Object> editorPreferences;
+    private static final IFileHandler fileHandler = FileHandler.getInstance();
+    private static final SharedConstants sharedConstants= SharedConstants.getInstance();
+    private static final SharedVariables sharedVariables = SharedVariables.getInstance();
+    private static final IEditorTextUtils editorTextUtils = EditorTextUtils.getInstance();
 
     // onCreate
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        initializePreferences();
+        initializeVariables();
+        setupTheme();
+        setupLayout();
+        initializeViews();
+        setupActionBar();
+        handleSavedInstanceState(savedInstanceState);
+        handleIntent(getIntent(), savedInstanceState);
+        setListeners();
+    }
+
+    private void initializePreferences() {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         editorPreferences = EditorPreferenceHandler.fetchPreferences(getResources(), sharedPreferences);
+    }
 
+    private void initializeVariables() {
+        sharedVariables.appContext = this;
 
         Set<String> pathSet = (Set<String>) editorPreferences.get(Preferences.pathSet);
         pathMap = new HashMap<>();
 
-        if (pathSet != null)
-            for (String path : pathSet)
-                pathMap.put(path, sharedPreferences.getInt(path, 0));
+        if (pathSet != null) {
+            for (String pathEntry : pathSet) {
+                pathMap.put(pathEntry, PreferenceManager.getDefaultSharedPreferences(this).getInt(pathEntry, 0));
+            }
+        }
 
         removeList = new ArrayList<>();
+    }
 
-        ThemeHandler.setTheme(theme,this);
+    private void setupTheme() {
+        ThemeHandler.setTheme(theme, this);
+    }
 
-
-        if ((boolean) editorPreferences.get(Preferences.isContentWrapped))
+    private void setupLayout() {
+        if ((boolean) editorPreferences.get(Preferences.isContentWrapped)) {
             setContentView(R.layout.wrap);
-
-        else
+        } else {
             setContentView(R.layout.edit);
+        }
+    }
 
+    private void initializeViews() {
         textView = findViewById(R.id.text);
         scrollView = findViewById(R.id.vscroll);
+    }
 
-        getActionBar().setSubtitle(match);
+    private void setupActionBar() {
+        getActionBar().setSubtitle(sharedVariables.match);
         getActionBar().setCustomView(R.layout.custom);
         getActionBar().setDisplayShowCustomEnabled(true);
         customView = (TextView) getActionBar().getCustomView();
+        updateWordCount = () -> editorTextUtils.wordCountText(textView, customView);
+    }
 
-        updateWordCount = () -> wordCountText();
+    private void handleSavedInstanceState(Bundle savedInstanceState) {
+        if (savedInstanceState != null) {
+            edit = savedInstanceState.getBoolean(sharedConstants.EDIT);
+        }
 
-        if (savedInstanceState != null)
-            edit = savedInstanceState.getBoolean(EDIT);
-
-        if (!edit)
-        {
+        if (!edit) {
             textView.setRawInputType(InputType.TYPE_NULL);
             textView.setTextIsSelectable(true);
-        }
-
-        else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled))
+        } else if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled)) {
             textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                  InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-
-        setSizeAndTypeface(size, type);
-
-        Intent intent = getIntent();
-        Uri uri = intent.getData();
-
-        switch (intent.getAction())
-        {
-        case Intent.ACTION_EDIT:
-        case Intent.ACTION_VIEW:
-            if ((savedInstanceState == null) && (uri != null))
-                readFile(uri);
-
-            getActionBar().setDisplayHomeAsUpEnabled(true);
-            break;
-
-        case Intent.ACTION_SEND:
-            if (savedInstanceState == null)
-            {
-                // Get uri
-                uri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-                // Get text
-                String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                if (uri != null)
-                    readFile(uri);
-
-                else if (text != null)
-                {
-                    newFile(text);
-                    changed = true;
-                }
-
-                else
-                    defaultFile();
-            }
-            break;
-
-        case OPEN_NEW:
-            if (savedInstanceState == null)
-            {
-                newFile();
-                textView.postDelayed(() -> editClicked(null), UPDATE_DELAY);
-            }
-            break;
-
-        case Intent.ACTION_MAIN:
-            if (savedInstanceState == null)
-            {
-                if ((boolean) editorPreferences.get(Preferences.isLast))
-                    lastFile();
-
-                else
-                    defaultFile();
-            }
-            break;
+                    InputType.TYPE_TEXT_FLAG_MULTI_LINE |
+                    InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         }
+    }
 
-        setListeners();
+    private void handleIntent(Intent intent, Bundle savedInstanceState) {
+        Uri intentUri = intent.getData();
+
+        switch (intent.getAction()) {
+            case Intent.ACTION_VIEW:
+            case Intent.ACTION_EDIT:
+                handleViewEditIntent(savedInstanceState, intentUri);
+                break;
+
+            case Intent.ACTION_SEND:
+                handleSendIntent(savedInstanceState, intent);
+                break;
+
+            case "org.billthefarmer.editor.OPEN_NEW":
+                handleOpenNewIntent(savedInstanceState);
+                break;
+
+            case Intent.ACTION_MAIN:
+                handleMainIntent(savedInstanceState);
+                break;
+
+            default:
+                break;
+        }
+    }
+
+    private void handleViewEditIntent(Bundle savedInstanceState, Uri intentUri) {
+        if (savedInstanceState == null && intentUri != null) {
+            loadFile(intentUri);
+        }
+        getActionBar().setDisplayHomeAsUpEnabled(true);
+    }
+
+    private void handleSendIntent(Bundle savedInstanceState, Intent intent) {
+        if (savedInstanceState == null) {
+            Uri intentUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+
+            if (intentUri != null) {
+                loadFile(intentUri);
+            } else if (text != null) {
+                defaultFile(text);
+                sharedVariables.changed = true;
+            } else {
+                defaultFile(null);
+            }
+        }
+    }
+
+    private void handleOpenNewIntent(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            defaultFile(null);
+            textView.postDelayed(() -> optionEdit(null), sharedConstants.UPDATE_DELAY);
+        }
+    }
+
+    private void handleMainIntent(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            if ((boolean) editorPreferences.get(Preferences.isLast)) {
+                lastFile();
+            } else {
+                defaultFile(null);
+            }
+        }
     }
 
     // setListeners
-    private void setListeners()
-    {
-        scaleDetector = new ScaleGestureDetector(this, new ScaleListener());
-        queryTextListener = new QueryTextListener();
+    private void setListeners() {
+        setupGestureDetectors();
+        setupTextViewListeners();
+        setupScrollViewListeners();
+    }
 
-        if (textView != null)
-        {
-            textView.addTextChangedListener(new TextWatcher()
-            {
-                // afterTextChanged
-                @Override
-                public void afterTextChanged(Editable s)
-                {
-                    if (!changed)
-                    {
-                        changed = true;
-                        invalidateOptionsMenu();
-                    }
+    private void setupGestureDetectors() {
+        scaleDetector = new ScaleGestureDetector(this, new ScaleListener(textView, this));
+        queryTextListener = new QueryTextListener(textView, scrollView);
+    }
 
-                    if (updateHighlight != null)
-                    {
-                        textView.removeCallbacks(updateHighlight);
-                        textView.postDelayed(updateHighlight, UPDATE_DELAY);
-                    }
+    private void setupTextViewListeners() {
+        if (textView == null) return;
 
-                    if (updateWordCount != null)
-                    {
-                        textView.removeCallbacks(updateWordCount);
-                        textView.postDelayed(updateWordCount, UPDATE_DELAY);
-                    }
+        textView.addTextChangedListener(createTextWatcher());
+        textView.setOnFocusChangeListener(createFocusChangeListener());
+        textView.setOnLongClickListener(createLongClickListener());
+        textView.getViewTreeObserver().addOnGlobalLayoutListener(() -> updateHighlight());
+    }
+
+    private TextWatcher createTextWatcher() {
+        return new TextWatcher() {
+            @Override
+            public void afterTextChanged(Editable s) {
+                if (!sharedVariables.changed) {
+                    sharedVariables.changed = true;
+                    invalidateOptionsMenu();
                 }
+                updateHighlight();
+                updateWordCount();
+            }
 
-                // beforeTextChanged
-                @Override
-                public void beforeTextChanged(CharSequence s,
-                                              int start,
-                                              int count,
-                                              int after)
-                {
-                    if (searchItem != null &&
-                        searchItem.isActionViewExpanded())
-                    {
-                        final CharSequence query = searchView.getQuery();
-
-                        textView.postDelayed(() ->
-                        {
-                            if (searchItem != null &&
-                                searchItem.isActionViewExpanded())
-                            {
-                                if (query != null)
-                                    searchView.setQuery(query, false);
-                            }
-                        }, UPDATE_DELAY);
-                    }
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                if (searchItem != null && searchItem.isActionViewExpanded()) {
+                    final CharSequence query = searchView.getQuery();
+                    textView.postDelayed(() -> {
+                        if (searchItem.isActionViewExpanded() && query != null) {
+                            searchView.setQuery(query, false);
+                        }
+                    }, sharedConstants.UPDATE_DELAY);
                 }
+            }
 
-                // onTextChanged
-                @Override
-                public void onTextChanged(CharSequence s,
-                                          int start,
-                                          int before,
-                                          int count) {}
-            });
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Required override, no implementation needed.
+            }
+        };
+    }
 
-            // onFocusChange
-            textView.setOnFocusChangeListener((v, hasFocus) ->
-            {
-                // Hide keyboard
-                InputMethodManager manager = (InputMethodManager)
-                    getSystemService(INPUT_METHOD_SERVICE);
-                if (!hasFocus)
-                    manager.hideSoftInputFromWindow(v.getWindowToken(), 0);
+    private View.OnFocusChangeListener createFocusChangeListener() {
+        return (v, hasFocus) -> {
+            if (!hasFocus) {
+                InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                manager.hideSoftInputFromWindow(v.getWindowToken(), 0);
+            }
+            updateHighlight();
+        };
+    }
 
-                if (updateHighlight != null)
-                {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, UPDATE_DELAY);
-                }
-            });
+    private View.OnLongClickListener createLongClickListener() {
+        return v -> {
+            if (edit) return false;
 
-            // onLongClick
-            textView.setOnLongClickListener(v ->
-            {
-                // Do nothing if already editable
-                if (edit)
-                    return false;
+            setTextViewCursorToCenter();
+            configureTextViewForEditing();
+            edit = true;
+            recreate(this);
 
-                // Get scroll position
-                int y = scrollView.getScrollY();
-                // Get height
-                int height = scrollView.getHeight();
-                // Get width
-                int width = scrollView.getWidth();
+            return false;
+        };
+    }
 
-                // Get offset
-                int line = textView.getLayout()
-                    .getLineForVertical(y + height / 2);
-                int offset = textView.getLayout()
-                    .getOffsetForHorizontal(line, width / 2);
-                // Set cursor
-                textView.setSelection(offset);
+    private void setTextViewCursorToCenter() {
+        int y = scrollView.getScrollY();
+        int height = scrollView.getHeight();
+        int width = scrollView.getWidth();
 
-                // Set editable with or without suggestions
-                if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
-                    textView
-                    .setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-                else
-                    textView
-                    .setInputType(InputType.TYPE_CLASS_TEXT |
-                                  InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                  InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-                // Update boolean
-                edit = true;
+        int line = textView.getLayout().getLineForVertical(y + height / 2);
+        int offset = textView.getLayout().getOffsetForHorizontal(line, (float) width / 2);
+        textView.setSelection(offset);
+    }
 
-                // Restart
-                recreate(this);
-
-                return false;
-            });
-
-            textView.getViewTreeObserver().addOnGlobalLayoutListener(() ->
-            {
-                if (updateHighlight != null)
-                {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, UPDATE_DELAY);
-                }
-            });
+    private void configureTextViewForEditing() {
+        int inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+        if (!(boolean) editorPreferences.get(Preferences.isSuggestEnabled)) {
+            inputType |= InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
         }
+        textView.setInputType(inputType);
+    }
 
-        if (scrollView != null)
-        {
-            // onScrollChange
-            scrollView.getViewTreeObserver().addOnScrollChangedListener(() ->
-            {
-                if (updateHighlight != null)
-                {
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, UPDATE_DELAY);
-                }
-            });
+    private void setupScrollViewListeners() {
+        if (scrollView == null) return;
+
+        scrollView.getViewTreeObserver().addOnScrollChangedListener(this::updateHighlight);
+    }
+
+    private void updateHighlight() {
+        if (sharedVariables.updateHighlight != null) {
+            textView.removeCallbacks(sharedVariables.updateHighlight);
+            textView.postDelayed(sharedVariables.updateHighlight, sharedConstants.UPDATE_DELAY);
+        }
+    }
+
+    private void updateWordCount() {
+        if (updateWordCount != null) {
+            textView.removeCallbacks(updateWordCount);
+            textView.postDelayed(updateWordCount, sharedConstants.UPDATE_DELAY);
         }
     }
 
@@ -474,88 +401,91 @@ public class Editor extends Activity
     {
         super.onRestoreInstanceState(savedInstanceState);
 
-        path = savedInstanceState.getString(PATH);
-        edit = savedInstanceState.getBoolean(EDIT);
-        changed = savedInstanceState.getBoolean(CHANGED);
-        match = savedInstanceState.getString(MATCH);
-        modified = savedInstanceState.getLong(MODIFIED);
-        content = savedInstanceState.getParcelable(CONTENT);
+        sharedVariables.fileWrapper.path = savedInstanceState.getString(sharedConstants.PATH);
+        edit = savedInstanceState.getBoolean(sharedConstants.EDIT);
+        sharedVariables.changed = savedInstanceState.getBoolean(sharedConstants.CHANGED);
+        sharedVariables.match = savedInstanceState.getString(sharedConstants.MATCH);
+        sharedVariables.modified = savedInstanceState.getLong(sharedConstants.MODIFIED);
+        sharedVariables.fileWrapper.content = savedInstanceState.getParcelable(sharedConstants.CONTENT);
         invalidateOptionsMenu();
 
-        file = new File(path);
-        uri = Uri.fromFile(file);
+        sharedVariables.fileWrapper.file = new File(sharedVariables.fileWrapper.path);
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
 
-        if (content != null)
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
+        if (sharedVariables.fileWrapper.content != null)
+            setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
 
         else
-            setTitle(uri.getLastPathSegment());
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
 
-        if (match == null)
-            match = UTF_8;
-        getActionBar().setSubtitle(match);
+        if (sharedVariables.match == null)
+            sharedVariables.match = sharedConstants.UTF_8;
+        getActionBar().setSubtitle(sharedVariables.match);
 
-        checkHighlight();
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
 
-        if (file.lastModified() > modified)
-            alertDialog(this, R.string.appName, R.string.changedReload,
-                        R.string.reload, R.string.cancel, (dialog, id) ->
-        {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                readFile(uri);
-            }
-        });
+        if (sharedVariables.fileWrapper.file.lastModified() > sharedVariables.modified)
+            popupExternalChanges();
     }
 
     // onPause
     @Override
-    public void onPause()
-    {
+    public void onPause() {
         super.onPause();
 
-        // Save current path
-        savePath(path);
+        savePath(sharedVariables.fileWrapper.path);
+        removeTextViewCallbacks();
 
-        // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
-        textView.removeCallbacks(updateWordCount);
+        savePreferences();
 
-        SharedPreferences preferences =
-            PreferenceManager.getDefaultSharedPreferences(this);
+        // Save file if needed
+        if (sharedVariables.changed && getPreferenceBoolean(Preferences.autoSaveFeature)) {
+            saveFile();
+        }
+    }
+
+    private void savePreferences() {
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
         SharedPreferences.Editor editor = preferences.edit();
 
-        editor.putBoolean(PREF_SAVE, (boolean) editorPreferences.get(Preferences.autoSaveFeature));
-        editor.putBoolean(PREF_VIEW, (boolean) editorPreferences.get(Preferences.isReadOnly));
-        editor.putBoolean(PREF_LAST, (boolean) editorPreferences.get(Preferences.isLast));
-        editor.putBoolean(PREF_WRAP, (boolean) editorPreferences.get(Preferences.isContentWrapped));
-        editor.putBoolean(PREF_SUGGEST, (boolean) editorPreferences.get(Preferences.isSuggestEnabled));
-        editor.putBoolean(PREF_HIGH, (boolean) editorPreferences.get(Preferences.isHighlightEnabled));
-
-        editor.putInt(PREF_THEME, (int) editorPreferences.get(Preferences.Theme));
-        editor.putInt(PREF_SIZE, (int) editorPreferences.get(Preferences.FontSize));
-        editor.putInt(PREF_TYPE, (int) editorPreferences.get(Preferences.FontType));
-
-        editor.putString(PREF_FILE, path);
-
-        // Add the set of recent files
-        editor.putStringSet(PREF_PATHS, pathMap.keySet());
-
-        // Add a position for each file
-        for (String path : pathMap.keySet())
-            editor.putInt(path, pathMap.get(path));
-
-        // Remove the old ones
-        for (String path : removeList)
-            editor.remove(path);
+        saveOnPausePreferences(editor);
+        saveRecentPaths(editor);
 
         editor.apply();
-
-        // Save file
-        if (changed && (boolean) editorPreferences.get(Preferences.autoSaveFeature))
-            saveFile();
     }
+
+    private void saveOnPausePreferences(SharedPreferences.Editor editor) {
+        editor.putBoolean(PREF_SAVE, getPreferenceBoolean(Preferences.autoSaveFeature));
+        editor.putBoolean(PREF_VIEW, getPreferenceBoolean(Preferences.isReadOnly));
+        editor.putBoolean(PREF_LAST, getPreferenceBoolean(Preferences.isLast));
+        editor.putBoolean(PREF_WRAP, getPreferenceBoolean(Preferences.isContentWrapped));
+        editor.putBoolean(PREF_SUGGEST, getPreferenceBoolean(Preferences.isSuggestEnabled));
+        editor.putBoolean(PREF_HIGH, getPreferenceBoolean(Preferences.isHighlightEnabled));
+        editor.putInt(PREF_THEME, getPreferenceInt(Preferences.Theme));
+        editor.putInt(PREF_SIZE, getPreferenceInt(Preferences.FontSize));
+        editor.putInt(PREF_TYPE, getPreferenceInt(Preferences.FontType));
+        editor.putString(PREF_FILE, sharedVariables.fileWrapper.path);
+    }
+    private void saveRecentPaths(SharedPreferences.Editor editor) {
+        editor.putStringSet(PREF_PATHS, pathMap.keySet());
+
+        for (String pathKey : pathMap.keySet()) {
+            editor.putInt(pathKey, pathMap.get(pathKey));
+        }
+
+        for (String pathKey : removeList) {
+            editor.remove(pathKey);
+        }
+    }
+
+    private boolean getPreferenceBoolean(Preferences preference) {
+        return (boolean) editorPreferences.get(preference);
+    }
+
+    private int getPreferenceInt(Preferences preference) {
+        return (int) editorPreferences.get(preference);
+    }
+
 
     // onSaveInstanceState
     @Override
@@ -563,12 +493,13 @@ public class Editor extends Activity
     {
         super.onSaveInstanceState(outState);
 
-        outState.putParcelable(CONTENT, content);
-        outState.putLong(MODIFIED, modified);
-        outState.putBoolean(CHANGED, changed);
-        outState.putString(MATCH, match);
-        outState.putBoolean(EDIT, edit);
-        outState.putString(PATH, path);
+
+        outState.putParcelable(sharedConstants.CONTENT, sharedVariables.fileWrapper.content);
+        outState.putLong(sharedConstants.MODIFIED, sharedVariables.modified);
+        outState.putBoolean(sharedConstants.CHANGED, sharedVariables.changed);
+        outState.putString(sharedConstants.MATCH, sharedVariables.match);
+        outState.putBoolean(sharedConstants.EDIT, edit);
+        outState.putString(sharedConstants.PATH, sharedVariables.fileWrapper.path);
     }
 
     // onCreateOptionsMenu
@@ -583,152 +514,141 @@ public class Editor extends Activity
 
     // onPrepareOptionsMenu
     @Override
-    public boolean onPrepareOptionsMenu(Menu menu)
-    {
-        // Set up search view
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        setupSearchView(menu);
+        setupMenuVisibility(menu);
+        setupPreferences(menu);
+        setupTheme(menu);
+        setupFontSize(menu);
+        setupCharsets(menu);
+        setupTypefaces(menu);
+        setupRecentFiles(menu);
+
+        return true;
+    }
+
+    private void setupSearchView(Menu menu) {
         searchItem = menu.findItem(R.id.search);
         searchView = (SearchView) searchItem.getActionView();
 
-        // Set up search view options and listener
-        if (searchView != null)
-        {
+        if (searchView != null) {
             searchView.setSubmitButtonEnabled(true);
             searchView.setImeOptions(EditorInfo.IME_ACTION_GO);
             searchView.setOnQueryTextListener(queryTextListener);
         }
 
-        // Show find all item
-        if (menu.findItem(R.id.search).isActionViewExpanded())
-            menu.findItem(R.id.findAll).setVisible(true);
-        else
-            menu.findItem(R.id.findAll).setVisible(false);
+        menu.findItem(R.id.findAll).setVisible(searchItem.isActionViewExpanded());
+    }
 
+    private void setupMenuVisibility(Menu menu) {
         menu.findItem(R.id.edit).setVisible(!edit);
         menu.findItem(R.id.view).setVisible(edit);
-        menu.findItem(R.id.save).setVisible(changed);
+        menu.findItem(R.id.save).setVisible(sharedVariables.changed);
+    }
 
+    private void setupPreferences(Menu menu) {
         menu.findItem(R.id.viewFile).setChecked((boolean) editorPreferences.get(Preferences.isReadOnly));
         menu.findItem(R.id.openLast).setChecked((boolean) editorPreferences.get(Preferences.isLast));
         menu.findItem(R.id.autoSave).setChecked((boolean) editorPreferences.get(Preferences.autoSaveFeature));
         menu.findItem(R.id.wrap).setChecked((boolean) editorPreferences.get(Preferences.isContentWrapped));
         menu.findItem(R.id.suggest).setChecked((boolean) editorPreferences.get(Preferences.isSuggestEnabled));
         menu.findItem(R.id.highlight).setChecked((boolean) editorPreferences.get(Preferences.isHighlightEnabled));
-
-        switch (theme)
-        {
-        case LIGHT:
-            menu.findItem(R.id.light).setChecked(true);
-            break;
-
-        case DARK:
-            menu.findItem(R.id.dark).setChecked(true);
-            break;
-
-        case SYSTEM:
-            menu.findItem(R.id.system).setChecked(true);
-            break;
-
-        case WHITE:
-            menu.findItem(R.id.white).setChecked(true);
-            break;
-
-        case BLACK:
-            menu.findItem(R.id.black).setChecked(true);
-            break;
-
-        case RETRO:
-            menu.findItem(R.id.retro).setChecked(true);
-            break;
-        }
-
-        switch ((int) editorPreferences.get(Preferences.FontSize))
-        {
-        case SMALL:
-            menu.findItem(R.id.small).setChecked(true);
-            break;
-
-        case MEDIUM:
-            menu.findItem(R.id.medium).setChecked(true);
-            break;
-
-        case LARGE:
-            menu.findItem(R.id.large).setChecked(true);
-            break;
-        }
-
-        // Get the charsets
-        Set<String> keySet = Charset.availableCharsets().keySet();
-        // Get the submenu
-        MenuItem item = menu.findItem(R.id.charset);
-        item.setTitle(match);
-        SubMenu sub = item.getSubMenu();
-        sub.clear();
-        // Add charsets contained in both sets
-        sub.add(Menu.NONE, R.id.charsetItem, Menu.NONE, R.string.detect);
-        for (String key: keySet)
-            sub.add(Menu.NONE, R.id.charsetItem, Menu.NONE, key);
-
-        // Get the typefaces
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
-        item = menu.findItem(R.id.typeface);
-        sub = item.getSubMenu();
-        sub.clear();
-        // Add typefaces
-        for (String typeface: typefaces)
-            sub.add(Menu.NONE, R.id.typefaceItem, Menu.NONE, typeface);
-        sub.getItem(type).setCheckable(true);
-        sub.getItem(type).setChecked(true);
-
-        // Get a list of recent files
-        List<Long> list = new ArrayList<>();
-        Map<Long, String> map = new HashMap<>();
-
-        // Get the last modified dates
-        for (String path: pathMap.keySet())
-        {
-            File file = new File(path);
-            // Check it exists
-            if (!file.exists())
-                continue;
-
-            long last = file.lastModified();
-            list.add(last);
-            map.put(last, path);
-        }
-
-        // Sort in reverse order
-        Collections.sort(list);
-        Collections.reverse(list);
-
-        // Get the submenu
-        item = menu.findItem(R.id.openRecent);
-        sub = item.getSubMenu();
-        sub.clear();
-
-        // Add the recent files
-        for (long date : list)
-        {
-            String path = map.get(date);
-
-            // Remove path prefix
-            CharSequence name =
-                path.replaceFirst(Environment
-                                  .getExternalStorageDirectory()
-                                  .getPath() + File.separator, "");
-            // Create item
-            sub.add(Menu.NONE, R.id.fileItem, Menu.NONE, TextUtils.ellipsize
-                    (name, new TextPaint(), MENU_SIZE,
-                     TextUtils.TruncateAt.MIDDLE))
-                // Use condensed title to save path as API doesn't
-                // work as documented
-                .setTitleCondensed(name);
-        }
-
-        // Add clear list item
-        sub.add(Menu.NONE, R.id.clearList, Menu.NONE, R.string.clearList);
-
-        return true;
     }
+
+    private void setupTheme(Menu menu) {
+        switch (theme) {
+            case LIGHT:
+                menu.findItem(R.id.light).setChecked(true);
+                break;
+            case DARK:
+                menu.findItem(R.id.dark).setChecked(true);
+                break;
+            case SYSTEM:
+                menu.findItem(R.id.system).setChecked(true);
+                break;
+            case WHITE:
+                menu.findItem(R.id.white).setChecked(true);
+                break;
+            case BLACK:
+                menu.findItem(R.id.black).setChecked(true);
+                break;
+            case RETRO:
+                menu.findItem(R.id.retro).setChecked(true);
+                break;
+        }
+    }
+
+    private void setupFontSize(Menu menu) {
+        switch ((int) editorPreferences.get(Preferences.FontSize)) {
+            case SMALL:
+                menu.findItem(R.id.small).setChecked(true);
+                break;
+            case MEDIUM:
+                menu.findItem(R.id.medium).setChecked(true);
+                break;
+            case LARGE:
+                menu.findItem(R.id.large).setChecked(true);
+                break;
+        }
+    }
+
+    private void setupCharsets(Menu menu) {
+        Set<String> charsets = Charset.availableCharsets().keySet();
+        MenuItem charsetItem = menu.findItem(R.id.charset);
+        charsetItem.setTitle(sharedVariables.match);
+        SubMenu charsetSubMenu = charsetItem.getSubMenu();
+        charsetSubMenu.clear();
+
+        charsetSubMenu.add(Menu.NONE, R.id.charsetItem, Menu.NONE, R.string.detect);
+        for (String charset : charsets) {
+            charsetSubMenu.add(Menu.NONE, R.id.charsetItem, Menu.NONE, charset);
+        }
+    }
+
+    private void setupTypefaces(Menu menu) {
+        String[] typefaces = getResources().getStringArray(R.array.typefaces);
+        MenuItem typefaceItem = menu.findItem(R.id.typeface);
+        SubMenu typefaceSubMenu = typefaceItem.getSubMenu();
+        typefaceSubMenu.clear();
+
+        for (String typeface : typefaces) {
+            typefaceSubMenu.add(Menu.NONE, R.id.typefaceItem, Menu.NONE, typeface);
+        }
+        typefaceSubMenu.getItem(type).setCheckable(true);
+        typefaceSubMenu.getItem(type).setChecked(true);
+    }
+
+    private void setupRecentFiles(Menu menu) {
+        List<Long> lastModifiedDates = new ArrayList<>();
+        Map<Long, String> filePathsByDate = new HashMap<>();
+
+        for (String path : pathMap.keySet()) {
+            File file = new File(path);
+            if (!file.exists()) continue;
+
+            long lastModified = file.lastModified();
+            lastModifiedDates.add(lastModified);
+            filePathsByDate.put(lastModified, path);
+        }
+
+        Collections.sort(lastModifiedDates, Collections.reverseOrder());
+
+        MenuItem recentFilesItem = menu.findItem(R.id.openRecent);
+        SubMenu recentFilesSubMenu = recentFilesItem.getSubMenu();
+        recentFilesSubMenu.clear();
+
+        for (long date : lastModifiedDates) {
+            String filePath = filePathsByDate.get(date);
+            CharSequence displayName = filePath.replaceFirst(
+                    Environment.getExternalStorageDirectory().getPath() + File.separator, "");
+            recentFilesSubMenu.add(Menu.NONE, R.id.fileItem, Menu.NONE,
+                            TextUtils.ellipsize(displayName, new TextPaint(), sharedConstants.MENU_SIZE, TextUtils.TruncateAt.MIDDLE))
+                    .setTitleCondensed(displayName);
+        }
+
+        recentFilesSubMenu.add(Menu.NONE, R.id.clearList, Menu.NONE, R.string.clearList);
+    }
+
 
     // onOptionsItemSelected
     @Override
@@ -740,95 +660,97 @@ public class Editor extends Activity
             onBackPressed();
             break;
         case R.id.newFile:
-            newFile();
+            optionNewFile();
             break;
         case R.id.edit:
-            editClicked(item);
+            optionEdit(item);
             break;
         case R.id.view:
-            viewClicked(item);
+            optionView(item);
             break;
         case R.id.open:
-            openFile();
+            optionOpenFile();
             break;
         case R.id.save:
-            saveCheck();
+            saveFile();
             break;
         case R.id.saveAs:
-            saveAs();
+            optionSaveAs();
             break;
         case R.id.clearList:
-            clearList();
+            optionClearList();
             break;
         case R.id.findAll:
-            findAll();
+            optionFindAll();
             break;
         case R.id.goTo:
-            goTo();
+            optionGoTo();
             break;
         case R.id.print:
-            print();
+            optionPrint();
             break;
         case R.id.viewMarkdown:
-            viewMarkdown();
+            optionViewMarkdown();
             break;
         case R.id.viewFile:
-            viewFileClicked(item);
+            optionViewFile(item);
             break;
         case R.id.openLast:
-            openLastClicked(item);
+            optionOpenLast(item);
             break;
         case R.id.autoSave:
-            autoSaveClicked(item);
+            optionAutoSave(item);
             break;
         case R.id.wrap:
-            wrapClicked(item);
+            optionWrap(item);
             break;
         case R.id.suggest:
-            suggestClicked(item);
+            optionSuggest(item);
             break;
         case R.id.highlight:
-            highlightClicked(item);
+            optionHighlight(item);
             break;
         case R.id.light:
-            lightClicked(item);
+            optionTheme(item, LIGHT);
             break;
         case R.id.dark:
-            darkClicked(item);
+            optionTheme(item,DARK);
             break;
         case R.id.system:
-            systemClicked(item);
+            optionTheme(item,SYSTEM);
             break;
         case R.id.white:
-            whiteClicked(item);
+            optionTheme(item,WHITE);
             break;
         case R.id.black:
-            blackClicked(item);
+            optionTheme(item,BLACK);
             break;
         case R.id.retro:
-            retroClicked(item);
+            optionTheme(item,RETRO);
             break;
         case R.id.small:
-            smallClicked(item);
+            optionTextSize(item,SMALL);
             break;
         case R.id.medium:
-            mediumClicked(item);
+            optionTextSize(item,MEDIUM);
             break;
         case R.id.large:
-            largeClicked(item);
+            optionTextSize(item,LARGE);
             break;
         case R.id.about:
-            aboutClicked();
+            optionAbout();
             break;
         case R.id.fileItem:
-            openRecent(item);
+            optionOpenRecent(item);
             break;
         case R.id.charsetItem:
-            setCharset(item);
+            optionSetCharset(item);
             break;
         case R.id.typefaceItem:
-            setTypeface(item);
+            optionSetTypeface(item);
             break;
+        default:
+           break;
         }
 
         // Close text search
@@ -850,22 +772,8 @@ public class Editor extends Activity
             return;
         }
 
-        if (changed)
-            alertDialog(this, R.string.appName, R.string.modified,
-                        R.string.save, R.string.discard, (dialog, id) ->
-        {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                saveFile();
-                finish();
-                break;
-            case DialogInterface.BUTTON_NEGATIVE:
-                changed = false;
-                finish();
-                break;
-            }
-        });
+        if (sharedVariables.changed)
+            popupQuitUnsavedChanges();
 
         else
             finish();
@@ -881,15 +789,17 @@ public class Editor extends Activity
 
         switch (requestCode)
         {
-        case OPEN_DOCUMENT:
-            content = data.getData();
-            readFile(content);
+        case 1:
+            sharedVariables.fileWrapper.content = data.getData();
+            loadFile(sharedVariables.fileWrapper.content);
             break;
 
-        case CREATE_DOCUMENT:
-            content = data.getData();
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
+        case 2:
+            sharedVariables.fileWrapper.content = data.getData();
+            setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
             saveFile();
+            break;
+        default:
             break;
         }
     }
@@ -914,9 +824,9 @@ public class Editor extends Activity
                 // Edit, View
             case KeyEvent.KEYCODE_E:
                 if (event.isShiftPressed())
-                    viewClicked(null);
+                    optionView(null);
                 else
-                    editClicked(null);
+                    optionEdit(null);
                 break;
                 // Search
             case KeyEvent.KEYCODE_F:
@@ -932,7 +842,7 @@ public class Editor extends Activity
                 break;
                 // Goto
             case KeyEvent.KEYCODE_G:
-                goTo();
+                optionGoTo();
                 break;
                 // Menu
             case KeyEvent.KEYCODE_M:
@@ -940,35 +850,34 @@ public class Editor extends Activity
                 break;
                 // New
             case KeyEvent.KEYCODE_N:
-                newFile();
+                optionNewFile();
                 break;
                 // Open
             case KeyEvent.KEYCODE_O:
-                openFile();
+                optionOpenFile();
                 break;
                 // Print
             case KeyEvent.KEYCODE_P:
-                print();
+                optionPrint();
                 break;
                 // Save, Save as
             case KeyEvent.KEYCODE_S:
                 if (event.isShiftPressed())
-                    saveAs();
+                    optionSaveAs();
                 else
-                    saveCheck();
+                    saveFile();
                 break;
                 // Increase text size
-            case KeyEvent.KEYCODE_PLUS:
-            case KeyEvent.KEYCODE_EQUALS:
-                size += 2;
-                size = Math.max(TINY, Math.min(size, HUGE));
-                textView.setTextSize(size);
+            case KeyEvent.KEYCODE_EQUALS,KeyEvent.KEYCODE_PLUS:
+                sharedVariables.size += 2;
+                sharedVariables.size = Math.max(TINY, Math.min(sharedVariables.size, HUGE));
+                textView.setTextSize(sharedVariables.size);
                 break;
                 // Decrease text size
             case KeyEvent.KEYCODE_MINUS:
-                size -= 2;
-                size = Math.max(TINY, Math.min(size, HUGE));
-                textView.setTextSize(size);
+                sharedVariables.size -= 2;
+                sharedVariables.size = Math.max(TINY, Math.min(sharedVariables.size, HUGE));
+                textView.setTextSize(sharedVariables.size);
                 break;
 
             default:
@@ -1001,8 +910,12 @@ public class Editor extends Activity
         }
     }
 
+
+    ///--------------///
+    /// MENU OPTIONS ///
+    ///--------------///
     // editClicked
-    private void editClicked(MenuItem item)
+    private void optionEdit(MenuItem item)
     {
         // Get scroll position
         int y = scrollView.getScrollY();
@@ -1015,7 +928,7 @@ public class Editor extends Activity
         int line = textView.getLayout()
             .getLineForVertical(y + height / 2);
         int offset = textView.getLayout()
-            .getOffsetForHorizontal(line, width / 2);
+            .getOffsetForHorizontal(line, (float) width / 2);
         // Set cursor
         textView.setSelection(offset);
 
@@ -1035,7 +948,7 @@ public class Editor extends Activity
     }
 
     // viewClicked
-    private void viewClicked(MenuItem item)
+    private void optionView(MenuItem item)
     {
         // Set read only
         textView.setRawInputType(InputType.TYPE_NULL);
@@ -1050,266 +963,70 @@ public class Editor extends Activity
     }
 
     // newFile
-    private void newFile()
+    private void optionNewFile()
     {
         // Check if file changed
-        if (changed)
-            alertDialog(this, R.string.newFile, R.string.modified,
-                        R.string.save, R.string.discard, (dialog, id) ->
-        {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                saveFile();
-                newFile(null);
-                break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-                newFile(null);
-                break;
-            }
-
-            invalidateOptionsMenu();
-        });
-
-        else
-            newFile(null);
-
+        if (sharedVariables.changed) {
+            popupNewFileUnsavedChanges();
+        }
+        defaultFile(null);
         invalidateOptionsMenu();
     }
 
-    // newFile
-    private void newFile(String text)
-    {
-        textView.setText("");
-        changed = false;
-
-        file = getNewFile();
-        uri = Uri.fromFile(file);
-        path = uri.getPath();
-        content = null;
-
-        if (text != null)
-            textView.append(text);
-
-        setTitle(uri.getLastPathSegment());
-        match = UTF_8;
-        getActionBar().setSubtitle(match);
-    }
-
-    // getNewFile
-    private static File getNewFile()
-    {
-        File documents = new
-            File(Environment.getExternalStorageDirectory(), DOCUMENTS);
-        return new File(documents, NEW_FILE);
-    }
-
-    // getDefaultFile
-    private static File getDefaultFile()
-    {
-        File documents = new
-            File(Environment.getExternalStorageDirectory(), DOCUMENTS);
-        return new File(documents, EDIT_FILE);
-    }
-
-    // defaultFile
-    private void defaultFile()
-    {
-        file = getDefaultFile();
-        uri = Uri.fromFile(file);
-        path = uri.getPath();
-        content = null;
-
-        if (file.exists())
-            readFile(uri);
-
-        else
-        {
-            setTitle(uri.getLastPathSegment());
-            match = UTF_8;
-            getActionBar().setSubtitle(match);
-        }
-    }
-
-    // lastFile
-    private void lastFile()
-    {
-        String path = (String) editorPreferences.get(Preferences.File);
-
-        if (path.isEmpty())
-        {
-            defaultFile();
-            return;
-        }
-
-        file = new File(path);
-        uri = Uri.fromFile(file);
-        path = uri.getPath();
-
-        if (file.exists())
-            readFile(uri);
-
-        else
-        {
-            setTitle(uri.getLastPathSegment());
-            match = UTF_8;
-            getActionBar().setSubtitle(match);
-        }
-    }
-
     // setCharset
-    private void setCharset(MenuItem item)
+    private void optionSetCharset(MenuItem item)
     {
-        match = item.getTitle().toString();
-        getActionBar().setSubtitle(match);
+        sharedVariables.match = item.getTitle().toString();
+        getActionBar().setSubtitle(sharedVariables.match);
     }
 
     // setTypeface
-    private void setTypeface(MenuItem item)
+    private void optionSetTypeface(MenuItem item)
     {
         String name = item.getTitle().toString();
         Typeface typeface = Typeface.create(name, Typeface.NORMAL);
         textView.setTypeface(typeface);
         item.setChecked(true);
-        String typefaces[] = getResources().getStringArray(R.array.typefaces);
+        String[] typefaces = getResources().getStringArray(R.array.typefaces);
         List<String> list = Arrays.asList(typefaces);
         type = list.indexOf(name);
     }
 
-    // alertDialog
-    private static void alertDialog(Context context, int title, int message,
-                                    int positiveButton, int negativeButton,
-                                    DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(title);
-        builder.setMessage(message);
-
-        // Add the buttons
-        builder.setPositiveButton(positiveButton, listener);
-        builder.setNegativeButton(negativeButton, listener);
-
-        // Create the AlertDialog
-        builder.show();
-    }
-
-    // alertDialog
-    private static void alertDialog(Context context, int title,
-                                    String message, int neutralButton)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(title);
-        builder.setMessage(message);
-
-        // Add the buttons
-        builder.setNeutralButton(neutralButton, null);
-
-        // Create the AlertDialog
-        builder.show();
-    }
-
-    // savePath
-    private void savePath(String path)
-    {
-        if (path == null)
-            return;
-
-        // Save the current position
-        pathMap.put(path, scrollView.getScrollY());
-
-        // Get a list of files
-        List<Long> list = new ArrayList<>();
-        Map<Long, String> map = new HashMap<>();
-        for (String name: pathMap.keySet())
-        {
-            File file = new File(name);
-            // Add to remove list if non existant
-            if (!file.exists())
-            {
-                removeList.add(name);
-                continue;
-            }
-
-            list.add(file.lastModified());
-            map.put(file.lastModified(), name);
-        }
-
-        // Remove non existant entries
-        for (String name: removeList)
-            pathMap.remove(name);
-
-        // Sort in reverse order
-        Collections.sort(list);
-        Collections.reverse(list);
-
-        int count = 0;
-        for (long date : list)
-        {
-            String name = map.get(date);
-
-            // Remove old files
-            if (count >= MAX_PATHS)
-            {
-                pathMap.remove(name);
-                removeList.add(name);
-            }
-
-            count++;
-        }
-    }
-
     // openRecent
-    private void openRecent(MenuItem item)
+    private void optionOpenRecent(MenuItem item)
     {
         // Get path from condensed title
         String name = item.getTitleCondensed().toString();
-        File file = new File(name);
+        File fileToOpen = new File(name);
 
         // Check absolute file
-        if (!file.isAbsolute())
-            file = new File(Environment.getExternalStorageDirectory(), name);
+        if (!fileToOpen.isAbsolute())
+            fileToOpen = new File(Environment.getExternalStorageDirectory(), name);
         // Check it exists
-        if (file.exists())
+        if (fileToOpen.exists())
         {
-            Uri uri = Uri.fromFile(file);
+            Uri uriToOpen = Uri.fromFile(fileToOpen);
 
-            if (changed)
-                alertDialog(this, R.string.openRecent, R.string.modified,
-                            R.string.save, R.string.discard, (dialog, id) ->
-            {
-                switch (id)
-                {
-                case DialogInterface.BUTTON_POSITIVE:
-                    saveFile();
-                    startActivity(new Intent(Intent.ACTION_EDIT, uri,
-                                             this, Editor.class));
-                    break;
-
-                case DialogInterface.BUTTON_NEGATIVE:
-                    startActivity(new Intent(Intent.ACTION_EDIT, uri,
-                                             this, Editor.class));
-                    break;
-                }
-            });
+            if (sharedVariables.changed)
+                popupOpenRecentUnsavedChanges(uriToOpen);
 
             else
                 // New instance
-                startActivity(new Intent(Intent.ACTION_EDIT, uri,
+                startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
                                          this, Editor.class));
         }
     }
 
     // saveAs
-    private void saveAs()
+    private void optionSaveAs()
     {
         // Remove path prefix
         String name =
-            path.replaceFirst(Environment
+                sharedVariables.fileWrapper.path.replaceFirst(Environment
                               .getExternalStorageDirectory()
                               .getPath() + File.separator, "");
         // Open dialog
-        saveAsDialog(this, name, (dialog, id) ->
+        popupSaveAs(name, (dialog, id) ->
         {
             switch (id)
             {
@@ -1321,108 +1038,70 @@ public class Editor extends Activity
                 if (string.isEmpty())
                     return;
 
-                file = new File(string);
+                sharedVariables.fileWrapper.file = new File(string);
 
                 // Check absolute file
-                if (!file.isAbsolute())
-                    file = new
+                if (!sharedVariables.fileWrapper.file.isAbsolute())
+                    sharedVariables.fileWrapper.file = new
                         File(Environment.getExternalStorageDirectory(), string);
 
                 // Check uri
-                uri = Uri.fromFile(file);
-                Uri newUri = Uri.fromFile(getNewFile());
-                if (newUri.getPath().equals(uri.getPath()))
+                sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+                Uri newUri = Uri.fromFile(fileHandler.getNewFile());
+                if (newUri.getPath().equals(sharedVariables.fileWrapper.uri.getPath()))
                 {
-                    saveAs();
+                    optionSaveAs();
                     return;
                 }
 
                 // Check exists
-                if (file.exists())
-                    alertDialog(this, R.string.appName,
-                                R.string.changedOverwrite,
-                                R.string.overwrite, R.string.cancel, (d, b) ->
-                    {
-                        switch (b)
-                        {
-                        case DialogInterface.BUTTON_POSITIVE:
-                            // Set interface title
-                            setTitle(uri.getLastPathSegment());
-                            path = file.getPath();
-                            saveFile();
-                            break;
-                        }
-                    });
+                if (sharedVariables.fileWrapper.file.exists())
+                    popupOverwriteOptionSaveAs();
 
                 else
                 {
                     // Set interface title
-                    setTitle(uri.getLastPathSegment());
-                    path = file.getPath();
-                    content = null;
+                    setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+                    sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
+                    sharedVariables.fileWrapper.content = null;
                     saveFile();
                 }
                 break;
 
             case DialogInterface.BUTTON_NEUTRAL:
                 Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                intent.setType(TEXT_WILD);
+                intent.setType(sharedConstants.TEXT_WILD);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.putExtra(Intent.EXTRA_TITLE, uri.getLastPathSegment());
-                startActivityForResult(intent, CREATE_DOCUMENT);
+                intent.putExtra(Intent.EXTRA_TITLE, sharedVariables.fileWrapper.uri.getLastPathSegment());
+                startActivityForResult(intent, sharedConstants.CREATE_DOCUMENT);
+                break;
+            default:
                 break;
             }
         });
     }
 
-    // saveAsDialog
-    private static void saveAsDialog(Context context, String path,
-                                     DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(R.string.save);
-        builder.setMessage(R.string.choose);
-
-        // Add the buttons
-        builder.setPositiveButton(R.string.save, listener);
-        builder.setNegativeButton(R.string.cancel, listener);
-        builder.setNeutralButton(R.string.storage, listener);
-
-        // Create edit text
-        LayoutInflater inflater = (LayoutInflater) builder.getContext()
-            .getSystemService(LAYOUT_INFLATER_SERVICE);
-        View view = inflater.inflate(R.layout.save_path, null);
-        builder.setView(view);
-
-        // Create the AlertDialog
-        AlertDialog dialog = builder.show();
-        TextView text = dialog.findViewById(R.id.pathText);
-        text.setText(path);
-    }
-
     // clearList
-    private void clearList()
+    private void optionClearList()
     {
-        for (String path : pathMap.keySet())
-            removeList.add(path);
+        for (String temp : pathMap.keySet())
+            removeList.add(temp);
 
         pathMap.clear();
     }
 
     // findAll
-    public void findAll()
+    public void optionFindAll()
     {
         // Get search string
         String search = searchView.getQuery().toString();
-
-        FindTask findTask = new FindTask(this);
-        findTask.execute(search);
+        findTask(search);
     }
 
     // goTo
-    public void goTo()
+    public void optionGoTo()
     {
-        gotoDialog((seekBar, progress) ->
+        popupGoTo((seekBar, progress) ->
         {
             int height = textView.getHeight();
             int pos = progress * height / seekBar.getMax();
@@ -1435,55 +1114,11 @@ public class Editor extends Activity
     // OnSeekBarChangeListener
     public interface OnSeekBarChangeListener
     {
-        abstract void onProgressChanged(SeekBar seekBar, int progress);
-    }
-
-    // GotoDialog
-    private void gotoDialog(OnSeekBarChangeListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle(R.string.goTo);
-
-        // Add the buttons
-        builder.setNegativeButton(R.string.cancel, null);
-
-        // Create seek bar
-        LayoutInflater inflater = (LayoutInflater) builder.getContext()
-            .getSystemService(LAYOUT_INFLATER_SERVICE);
-        View view = inflater.inflate(R.layout.seek_bar, null);
-        builder.setView(view);
-
-        // Create the AlertDialog
-        AlertDialog dialog = builder.show();
-        SeekBar seekBar = dialog.findViewById(R.id.seekBar);
-        int height = textView.getHeight();
-        int progress = scrollView.getScrollY() * seekBar.getMax() / height;
-        seekBar.setProgress(progress);
-        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener()
-        {
-            @Override
-            public void onProgressChanged(SeekBar seekBar,
-                                          int progress,
-                                          boolean fromUser)
-            {
-                if (fromUser)
-                    listener.onProgressChanged(seekBar, progress);
-            }
-
-            @Override
-            public void onStartTrackingTouch (SeekBar seekBar) {}
-
-            @Override
-            public void onStopTrackingTouch (SeekBar seekBar)
-            {
-                dialog.dismiss();
-            }
-        });
+        void onProgressChanged(SeekBar seekBar, int progress);
     }
 
     // print
-    @SuppressWarnings("deprecation")
-    private void print()
+    private void optionPrint()
     {
         WebView webView = new WebView(this);
 
@@ -1517,13 +1152,12 @@ public class Editor extends Activity
             }
         });
 
-        String htmlDocument = 
-            HTML_HEAD + Html.toHtml(textView.getText()) + HTML_TAIL;
-        webView.loadData(htmlDocument, TEXT_HTML, UTF_8);
+        String htmlDocument = sharedConstants.HTML_HEAD + Html.toHtml(textView.getText()) + sharedConstants.HTML_TAIL;
+        webView.loadData(htmlDocument, sharedConstants.TEXT_HTML, sharedConstants.UTF_8);
     }
 
     // viewMarkdown
-    private void viewMarkdown()
+    private void optionViewMarkdown()
     {
         String text = textView.getText().toString();
 
@@ -1534,15 +1168,15 @@ public class Editor extends Activity
 
         String html = renderer.render(document);
 
-        File file = new File(getCacheDir(), HTML_FILE);
-        file.deleteOnExit();
+        File markdownFile = new File(getCacheDir(), sharedConstants.HTML_FILE);
+        markdownFile.deleteOnExit();
 
-        try (FileWriter writer = new FileWriter(file))
+        try (FileWriter writer = new FileWriter(markdownFile))
         {
             // Add HTML header and footer to make a valid page.
-            writer.write(HTML_HEAD);
+            writer.write(sharedConstants.HTML_HEAD);
             writer.write(html);
-            writer.write(HTML_TAIL);
+            writer.write(sharedConstants.HTML_TAIL);
         }
 
         catch (Exception e)
@@ -1553,10 +1187,10 @@ public class Editor extends Activity
         try
         {
             // Get file provider uri
-            Uri uri = FileProvider.getUriForFile
-                (this, FILE_PROVIDER, file);
+            Uri fileProviderUri = FileProvider.getUriForFile
+                (this, sharedConstants.FILE_PROVIDER, markdownFile);
             Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, TEXT_HTML);
+            intent.setDataAndType(fileProviderUri, sharedConstants.TEXT_HTML);
             intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivity(intent);
         }
@@ -1568,28 +1202,28 @@ public class Editor extends Activity
     }
 
     // viewFileClicked
-    private void viewFileClicked(MenuItem item)
+    private void optionViewFile(MenuItem item)
     {
         editorPreferences.put(Preferences.isReadOnly, !((boolean) editorPreferences.get(Preferences.isReadOnly)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isReadOnly)));
     }
 
     // openLastClicked
-    private void openLastClicked(MenuItem item)
+    private void optionOpenLast(MenuItem item)
     {
         editorPreferences.put(Preferences.isLast, !((boolean) editorPreferences.get(Preferences.isLast)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isLast)));
     }
 
     // autoSaveClicked
-    private void autoSaveClicked(MenuItem item)
+    private void optionAutoSave(MenuItem item)
     {
         editorPreferences.put(Preferences.autoSaveFeature, !((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.autoSaveFeature)));
     }
 
     // wrapClicked
-    private void wrapClicked(MenuItem item)
+    private void optionWrap(MenuItem item)
     {
         editorPreferences.put(Preferences.isContentWrapped, !((boolean) editorPreferences.get(Preferences.isContentWrapped)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isContentWrapped)));
@@ -1597,7 +1231,7 @@ public class Editor extends Activity
     }
 
     // suggestClicked
-    private void suggestClicked(MenuItem item)
+    private void optionSuggest(MenuItem item)
     {
         editorPreferences.put(Preferences.isSuggestEnabled, !((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isSuggestEnabled)));
@@ -1613,104 +1247,44 @@ public class Editor extends Activity
     }
 
     // highlightClicked
-    private void highlightClicked(MenuItem item)
+    private void optionHighlight(MenuItem item)
     {
         editorPreferences.put(Preferences.isHighlightEnabled, !((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
         item.setChecked(((boolean) editorPreferences.get(Preferences.isHighlightEnabled)));
 
-        checkHighlight();
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
     }
 
-    // lightClicked
-    private void lightClicked(MenuItem item)
+    private void optionTheme(MenuItem item, int selectedTheme)
     {
-        theme = LIGHT;
+        theme = selectedTheme;
         item.setChecked(true);
         recreate(this);
     }
 
-    // darkClicked
-    private void darkClicked(MenuItem item)
+    private void optionTextSize(MenuItem item, int selectedSize)
     {
-        theme = DARK;
+        sharedVariables.size = selectedSize;
         item.setChecked(true);
+
+        textView.setTextSize(sharedVariables.size);
         recreate(this);
-    }
-
-    // systemClicked
-    private void systemClicked(MenuItem item)
-    {
-        theme = SYSTEM;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // whiteClicked
-    private void whiteClicked(MenuItem item)
-    {
-        theme = WHITE;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // blackClicked
-    private void blackClicked(MenuItem item)
-    {
-        theme = BLACK;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // retroClicked
-    private void retroClicked(MenuItem item)
-    {
-        theme = RETRO;
-        item.setChecked(true);
-        recreate(this);
-    }
-
-    // smallClicked
-    private void smallClicked(MenuItem item)
-    {
-        size = SMALL;
-        item.setChecked(true);
-
-        textView.setTextSize(size);
-    }
-
-    // mediumClicked
-    private void mediumClicked(MenuItem item)
-    {
-        size = MEDIUM;
-        item.setChecked(true);
-
-        textView.setTextSize(size);
-    }
-
-    // largeClicked
-    private void largeClicked(MenuItem item)
-    {
-        size = LARGE;
-        item.setChecked(true);
-
-        textView.setTextSize(size);
     }
 
     // setSizeAndTypeface
-    private void setSizeAndTypeface(int size, int type)
+    private void optionSizeAndTypeface(int size, int type)
     {
         // Set size
         textView.setTextSize(size);
 
         // Set type
-        String names[] = getResources().getStringArray(R.array.typefaces);
+        String[] names = getResources().getStringArray(R.array.typefaces);
         Typeface typeface = Typeface.create(names[type], Typeface.NORMAL);
         textView.setTypeface(typeface);
     }
 
     // aboutClicked
-    @SuppressWarnings("deprecation")
-    private void aboutClicked()
+    private void optionAbout()
     {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(R.string.appName);
@@ -1739,212 +1313,86 @@ public class Editor extends Activity
         TextView text = dialog.findViewById(android.R.id.message);
         if (text != null)
         {
-            text.setTextAppearance(builder.getContext(),
-                                   android.R.style.TextAppearance_Small);
+            TextViewCompat.setTextAppearance(textView, android.R.style.TextAppearance_Small);
             text.setMovementMethod(LinkMovementMethod.getInstance());
         }
     }
 
-    // recreate
-    private void recreate(Context context)
-    {
-        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.M)
-            recreate();
-    }
-
     // openFile
-    private void openFile()
-    {
+    private void optionOpenFile() {
         // Check if file changed
-        if (changed)
-            alertDialog(this, R.string.open, R.string.modified,
-                        R.string.save, R.string.discard, (dialog, id) ->
-        {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                saveFile();
-                getFile();
-                break;
-
-            case DialogInterface.BUTTON_NEGATIVE:
-                changed = false;
-                getFile();
-                break;
-            }
-        });
-
-        else
-            getFile();
-
+        if (sharedVariables.changed) {
+           popupUnsavedChanges();
+        }
+        displayDirectory(null);
     }
 
-    // getFile
-    private void getFile()
+
+    ///-----------///
+    /// FUNCTIONS ///
+    ///-----------///
+
+    private void displayDirectory(File dir)
     {
-        // Check permissions
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-        {
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED)
-            {
-                requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_OPEN);
-                return;
-            }
+        if(!checkPermissions(sharedConstants.REQUEST_OPEN)){
+            return;
         }
 
         // Open parent folder
-        File dir = file.getParentFile();
-        getFile(dir);
-    }
+        if(dir == null){
+            dir = sharedVariables.fileWrapper.file.getParentFile();
+        }
 
-    // getFile
-    private void getFile(File dir)
-    {
+
         // Get list of files
-        List<File> fileList = getList(dir);
+        List<File> fileList = fileHandler.getList(dir);
         if (fileList == null)
             return;
 
         // Get list of folders
-        List<String> dirList = new ArrayList<String>();
+        List<String> dirList = new ArrayList<>();
         dirList.add(File.separator);
         dirList.addAll(Uri.fromFile(dir).getPathSegments());
 
         // Pop up dialog
-        openDialog(this, dirList, fileList, (dialog, which) ->
+        popupOpenFile(this, dirList, fileList, (dialog, which) ->
         {
             if (DialogInterface.BUTTON_NEUTRAL == which)
             {
                 // Use storage
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType(TEXT_WILD);
+                intent.setType(sharedConstants.TEXT_WILD);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, OPEN_DOCUMENT);
+                startActivityForResult(intent, sharedConstants.OPEN_DOCUMENT);
                 return;
             }
 
-            if (FOLDER_OFFSET <= which)
+            if (sharedConstants.FOLDER_OFFSET <= which)
             {
                 File file = new File(File.separator);
-                for (int i = 0; i <= which - FOLDER_OFFSET; i++)
+                for (int i = 0; i <= which - sharedConstants.FOLDER_OFFSET; i++)
                     file = new File(file, dirList.get(i));
                 if (file.isDirectory())
-                    getFile(file);
+                    displayDirectory(file);
                 return;
             }
 
             File selection = fileList.get(which);
             if (selection.isDirectory())
-                getFile(selection);
+                displayDirectory(selection);
 
             else
-                readFile(Uri.fromFile(selection));
+                loadFile(Uri.fromFile(selection));
         });
-    }
-
-    // getList
-    public static List<File> getList(File dir)
-    {
-        List<File> list = null;
-        File[] files = dir.listFiles();
-        // Check files
-        if (files == null)
-        {
-            // Create a list with just the parent folder and the
-            // external storage folder
-            list = new ArrayList<File>();
-            if (dir.getParentFile() == null)
-                list.add(dir);
-
-            else
-                list.add(dir.getParentFile());
-
-            list.add(Environment.getExternalStorageDirectory());
-
-            return list;
-        }
-
-        // Sort the files
-        Arrays.sort(files);
-        // Create a list
-        list = new ArrayList<File>(Arrays.asList(files));
-
-        // Add parent folder
-        if (dir.getParentFile() == null)
-            list.add(0, dir);
-
-        else
-            list.add(0, dir.getParentFile());
-
-        return list;
-    }
-
-    // openDialog
-    public static void openDialog(Context context, List<String> dirList,
-                                  List<File> fileList,
-                                  DialogInterface.OnClickListener listener)
-    {
-        AlertDialog.Builder builder = new AlertDialog.Builder(context);
-        builder.setTitle(FOLDER);
-
-        // Add the adapter
-        FileAdapter adapter = new FileAdapter(builder.getContext(), fileList);
-        builder.setAdapter(adapter, listener);
-
-        // Add storage button
-        builder.setNeutralButton(R.string.storage, listener);
-        // Add cancel button
-        builder.setNegativeButton(R.string.cancel, null);
-
-        // Create the Dialog
-        AlertDialog dialog = builder.create();
-        dialog.show();
-
-        // Find the title view
-        ViewGroup title = dialog.findViewById
-            (context.getResources().getIdentifier("title_template",
-                                                  "id", "android"));
-        // Replace content with scroll view
-        title.removeAllViews();
-        HorizontalScrollView scroll = new
-            HorizontalScrollView(dialog.getContext());
-        title.addView(scroll);
-        // Add a row of folder buttons
-        LinearLayout layout = new LinearLayout(dialog.getContext());
-        scroll.addView(layout);
-        for (String dir: dirList)
-        {
-            Button button = new Button(dialog.getContext(), null,
-                                       android.R.attr.buttonStyleSmall);
-            button.setId(dirList.indexOf(dir) + FOLDER_OFFSET);
-            button.setText(dir);
-            button.setOnClickListener((v) ->
-            {
-                listener.onClick(dialog, v.getId());
-                dialog.dismiss();
-            });
-            layout.addView(button);
-        }
-
-        // Scroll to the end
-        scroll.postDelayed(() ->
-        {
-            scroll.fullScroll(View.FOCUS_RIGHT);
-        }, POSITION_DELAY);
     }
 
     // onRequestPermissionsResult
     @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           String[] permissions,
-                                           int[] grantResults)
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,int[] grantResults)
     {
         switch (requestCode)
         {
-        case REQUEST_SAVE:
+        case 2:
             for (int i = 0; i < grantResults.length; i++)
                 if (permissions[i].equals(Manifest.permission
                                           .WRITE_EXTERNAL_STORAGE) &&
@@ -1953,823 +1401,268 @@ public class Editor extends Activity
                     saveFile();
             break;
 
-        case REQUEST_READ:
+        case 1:
             for (int i = 0; i < grantResults.length; i++)
                 if (permissions[i].equals(Manifest.permission
                                           .READ_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, read file
-                    readFile(uri);
+                    loadFile(sharedVariables.fileWrapper.uri);
             break;
 
-        case REQUEST_OPEN:
+        case 3:
             for (int i = 0; i < grantResults.length; i++)
                 if (permissions[i].equals(Manifest.permission
                                           .READ_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, open file
-                    getFile();
+                    displayDirectory(null);
             break;
+            default:
+                break;
         }
     }
 
-    // readFile
-    private void readFile(Uri uri)
+    private void defaultFile(String text)
     {
-        if (uri == null)
+        textView.setText("");
+        sharedVariables.changed = false;
+
+        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.uri.getPath();
+        sharedVariables.fileWrapper.content = null;
+
+        if (text != null){
+            textView.append(text);
+        }
+        else
+        {
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+            sharedVariables.match = sharedConstants.UTF_8;
+            getActionBar().setSubtitle(sharedVariables.match);
+        }
+    }
+
+    private void lastFile()
+    {
+        String lastFilePath = (String) editorPreferences.get(Preferences.File);
+
+        if (lastFilePath.isEmpty())
+        {
+            defaultFile(null);
+            return;
+        }
+
+        sharedVariables.fileWrapper.file = new File(lastFilePath);
+        sharedVariables.fileWrapper.uri = Uri.fromFile(sharedVariables.fileWrapper.file);
+        lastFilePath = sharedVariables.fileWrapper.uri.getPath();
+
+        if (sharedVariables.fileWrapper.file.exists())
+            loadFile(sharedVariables.fileWrapper.uri);
+
+        else
+        {
+            setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+            sharedVariables.match = sharedConstants.UTF_8;
+            getActionBar().setSubtitle(sharedVariables.match);
+        }
+    }
+
+    private void savePath(String path)
+    {
+        if (path == null)
             return;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        // Save the current position
+        pathMap.put(path, scrollView.getScrollY());
+
+        // Get a list of files
+        List<Long> list = new ArrayList<>();
+        Map<Long, String> map = new HashMap<>();
+        for (String name: pathMap.keySet())
         {
-            if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED)
+            File temp = new File(name);
+            // Add to remove list if non existant
+            if (!temp.exists())
             {
-                requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_READ);
-                this.uri = uri;
-                return;
+                removeList.add(name);
+                continue;
             }
+
+            list.add(temp.lastModified());
+            map.put(temp.lastModified(), name);
         }
 
-        long size = 0;
-        if (CONTENT.equalsIgnoreCase(uri.getScheme()))
-            size = FileUtils.getSize(this, uri, null, null);
+        // Remove non existant entries
+        for (String name: removeList)
+            pathMap.remove(name);
 
-        else
+        // Sort in reverse order
+        Collections.sort(list);
+        Collections.reverse(list);
+
+        int count = 0;
+        for (long date : list)
         {
-            File file = new File(uri.getPath());
-            size = file.length();
+            String name = map.get(date);
+
+            // Remove old files
+            if (count >= sharedConstants.MAX_PATHS)
+            {
+                pathMap.remove(name);
+                removeList.add(name);
+            }
+
+            count++;
         }
+    }
 
-        if (BuildConfig.DEBUG)
-            Log.d(TAG, "Size " + size);
+    public void loadFile(Uri uri) {
+        if (uri == null) return;
 
-        if (size > TOO_LARGE)
-        {
-            String large = getString(R.string.tooLarge);
-            large = String.format(large, FileUtils.getReadableFileSize(size));
-            alertDialog(this, R.string.appName, large, R.string.ok);
+        if (!checkPermissions(sharedConstants.REQUEST_READ)) {
+            this.sharedVariables.fileWrapper.uri = uri;
             return;
         }
 
-        // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
-        textView.removeCallbacks(updateWordCount);
-
-        if (BuildConfig.DEBUG)
-            Log.d(TAG, "Uri: " + uri);
-
-        // Attempt to resolve content uri
-        if (CONTENT.equalsIgnoreCase(uri.getScheme()))
-        {
-            content = uri;
-            uri = resolveContent(uri);
+        FileSizeDTO fileSizeDTO = FileUtils.checkFileSize(uri);
+        if(fileSizeDTO.isToLarge()){
+            popupFileToLarge(fileSizeDTO.getSize());
+            return;
         }
 
-        else
-            content = null;
 
-        if (BuildConfig.DEBUG)
-            Log.d(TAG, "Uri: " + uri);
+        removeTextViewCallbacks();
 
-        // Read into new file if unresolved
-        if (CONTENT.equalsIgnoreCase(uri.getScheme()))
-        {
-            file = getNewFile();
-            Uri defaultUri = Uri.fromFile(file);
-            path = defaultUri.getPath();
+        if (BuildConfig.DEBUG) Log.d(sharedConstants.TAG, "Uri: " + uri);
 
-            setTitle(FileUtils.getDisplayName(this, content, null, null));
-        }
+        sharedVariables.fileWrapper.content = FileUtils.resolveOrSetContentUri(uri);
 
-        // Read file
-        else
-        {
-            this.uri = uri;
-            path = uri.getPath();
-            file = new File(path);
-
-            setTitle(uri.getLastPathSegment());
+        if (sharedConstants.CONTENT.equalsIgnoreCase(uri.getScheme())) {
+            prepareNewFileForReading();
+        } else {
+            prepareExistingFile(uri);
         }
 
         textView.setText(R.string.loading);
 
-        ReadTask read = new ReadTask(this);
-        read.execute(uri);
+        try {
+            CharSequence fileContent = fileHandler.readFileFromUri(uri);
+            displayFile(fileContent);
+        } catch (Exception e) {
+            Log.e(sharedConstants.TAG, "Error reading file: " + e.getMessage(), e);
+            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
+        }
 
-        changed = false;
-        modified = file.lastModified();
-        savePath(path);
+        sharedVariables.changed = false;
+        sharedVariables.modified = sharedVariables.fileWrapper.file.lastModified();
+        savePath(sharedVariables.fileWrapper.path);
         invalidateOptionsMenu();
     }
 
-    // resolveContent
-    private Uri resolveContent(Uri uri)
-    {
-        String path = FileUtils.getPath(this, uri);
-
-        if (path != null)
-        {
-            File file = new File(path);
-            if (file.canRead())
-                uri = Uri.fromFile(file);
-        }
-
-        return uri;
-    }
-
-    // saveCheck
-    private void saveCheck()
-    {
-        Uri uri = Uri.fromFile(file);
-        Uri newUri = Uri.fromFile(getNewFile());
-        if (content == null && newUri.getPath().equals(uri.getPath()))
-            saveAs();
-
-        else
-            saveFile();
-    }
-
-    // saveFile
-    private void saveFile()
-    {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-        {
-            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED)
-            {
-                requestPermissions(new String[]
-                    {Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                     Manifest.permission.READ_EXTERNAL_STORAGE}, REQUEST_SAVE);
-                return;
-            }
-        }
-
-        // Stop highlighting
-        textView.removeCallbacks(updateHighlight);
+    private void removeTextViewCallbacks() {
+        textView.removeCallbacks(sharedVariables.updateHighlight);
         textView.removeCallbacks(updateWordCount);
+    }
 
-        if (file.lastModified() > modified)
-            alertDialog(this, R.string.appName, R.string.changedOverwrite,
-                        R.string.overwrite, R.string.cancel, (dialog, id) ->
+    private void prepareNewFileForReading() {
+        sharedVariables.fileWrapper.file = fileHandler.getNewFile();
+        sharedVariables.fileWrapper.path = Uri.fromFile(sharedVariables.fileWrapper.file).getPath();
+        setTitle(FileUtils.getDisplayName(this, sharedVariables.fileWrapper.content, null, null));
+    }
+
+    private void prepareExistingFile(Uri uri) {
+        sharedVariables.fileWrapper.uri = uri;
+        sharedVariables.fileWrapper.path = uri.getPath();
+        sharedVariables.fileWrapper.file = new File(sharedVariables.fileWrapper.path);
+        setTitle(uri.getLastPathSegment());
+    }
+
+    public void displayFile(CharSequence text)
+    {
+        if (textView != null)
+            textView.setText(text);
+
+        sharedVariables.changed = false;
+
+        // Check for saved position
+        if (pathMap.containsKey(sharedVariables.fileWrapper.path))
+            textView.postDelayed(() ->
+                            scrollView.smoothScrollTo
+                                    (0, pathMap.get(sharedVariables.fileWrapper.path)),
+                    sharedConstants.POSITION_DELAY);
+        else
+            textView.postDelayed(() ->
+                            scrollView.smoothScrollTo(0, 0),
+                    sharedConstants.POSITION_DELAY);
+        // Check mode
+        checkMode(text);
+
+        // Check highlighting
+        editorTextUtils.checkHighlight(editorPreferences,sharedVariables.fileWrapper.file,textView,scrollView);
+
+        // Set read only
+        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
         {
-            switch (id)
-            {
-            case DialogInterface.BUTTON_POSITIVE:
-                saveFile(file);
-                break;
-            }
-        });
+            textView.setRawInputType(InputType.TYPE_NULL);
+            textView.setTextIsSelectable(true);
+
+            // Update boolean
+            edit = false;
+        }
 
         else
         {
-            if (content == null)
-                saveFile(file);
-
+            // Set editable with or without suggestions
+            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
+                textView.setInputType(InputType.TYPE_CLASS_TEXT |
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE);
             else
-                saveFile(content);
-        }
-    }
-
-    // saveFile
-    private void saveFile(File file)
-    {
-        CharSequence text = textView.getText();
-        write(text, file);
-    }
-
-    // saveFile
-    private void saveFile(Uri uri)
-    {
-        CharSequence text = textView.getText();
-        try (OutputStream outputStream =
-             getContentResolver().openOutputStream(uri, "rwt"))
-        {
-            write(text, outputStream);
+                textView.setInputType(InputType.TYPE_CLASS_TEXT |
+                        InputType.TYPE_TEXT_FLAG_MULTI_LINE |
+                        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            // Update boolean
+            edit = true;
         }
 
-        catch (Exception e)
-        {
-            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
-            e.printStackTrace();
-            return;
-        }
-    }
+        // Dismiss keyboard
+        textView.clearFocus();
 
-    // write
-    private void write(CharSequence text, File file)
-    {
-        file.getParentFile().mkdirs();
-
-        String charset = UTF_8;
-        if (match != null && !match.equals(getString(R.string.detect)))
-            charset = match;
-
-        try (BufferedWriter writer = new BufferedWriter
-             (new OutputStreamWriter(new FileOutputStream(file), charset)))
-        {
-            writer.append(text);
-            writer.flush();
-        }
-
-        catch (Exception e)
-        {
-            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
-            e.printStackTrace();
-            return;
-        }
-
-        changed = false;
-        invalidateOptionsMenu();
-        modified = file.lastModified();
-        savePath(file.getPath());
-    }
-
-    // write
-    private void write(CharSequence text, OutputStream os)
-    {
-        String charset = UTF_8;
-        if (match != null && !match.equals(getString(R.string.detect)))
-            charset = match;
-
-        try (BufferedWriter writer =
-             new BufferedWriter(new OutputStreamWriter(os, charset)))
-        {
-            writer.append(text);
-            writer.flush();
-        }
-
-        catch (Exception e)
-        {
-            alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
-            e.printStackTrace();
-            return;
-        }
-
-        changed = false;
+        // Update menu
         invalidateOptionsMenu();
     }
 
-    // checkHighlight
-    private void checkHighlight()
-    {
-        // No syntax
-        syntax = NO_SYNTAX;
-
-        // Check extension
-        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) && file != null)
-        {
-            String ext = FileUtils.getExtension(file.getName());
-            if (ext != null)
-            {
-                String type = FileUtils.getMimeType(file);
-
-                if (ext.matches(CC_EXT))
-                    syntax = CC_SYNTAX;
-
-                else if (ext.matches(HTML_EXT))
-                    syntax = HTML_SYNTAX;
-
-                else if (ext.matches(CSS_EXT))
-                    syntax = CSS_SYNTAX;
-
-                else if (ext.matches(ORG_EXT))
-                    syntax = ORG_SYNTAX;
-
-                else if (ext.matches(MD_EXT))
-                    syntax = MD_SYNTAX;
-
-                else if (ext.matches(SH_EXT))
-                    syntax = SH_SYNTAX;
-
-                else if (!TEXT_PLAIN.equals(type))
-                    syntax = DEF_SYNTAX;
-
-                else
-                    syntax = NO_SYNTAX;
-
-                // Add callback
-                if (textView != null && syntax != NO_SYNTAX)
-                {
-                    if (updateHighlight == null)
-                        updateHighlight = () -> highlightText();
-
-                    textView.removeCallbacks(updateHighlight);
-                    textView.postDelayed(updateHighlight, UPDATE_DELAY);
-
-                    return;
-                }
-            }
+    public void saveFile(){
+        if (!checkPermissions(sharedConstants.REQUEST_SAVE)) {
+            return;
         }
+        try{
+            fileHandler.saveFile(textView.getText());
+            removeTextViewCallbacks();
 
-        // Remove highlighting
-        if (updateHighlight != null)
-        {
-            textView.removeCallbacks(updateHighlight);
-            textView.postDelayed(updateHighlight, UPDATE_DELAY);
-
-            updateHighlight = null;
+            invalidateOptionsMenu();
+        }catch (IOException ioe){
+            if(ioe.getMessage().equals("Overwrite default file")){
+                optionSaveAs();
+            }else{
+                popupSaveError(ioe);
+            }
         }
     }
 
-    // highlightText
-    private void highlightText()
-    {
-        // Get visible extent
-        int top = scrollView.getScrollY();
-        int height = scrollView.getHeight();
-
-        int line = textView.getLayout().getLineForVertical(top);
-        int start = textView.getLayout().getLineStart(line);
-        int first = textView.getLayout().getLineStart(line + 1);
-
-        line = textView.getLayout().getLineForVertical(top + height);
-        int end = textView.getLayout().getLineEnd(line);
-        int last = (line == 0)? end:
-            textView.getLayout().getLineStart(line - 1);
-
-        // Move selection if outside range
-        if (textView.getSelectionStart() < start)
-            textView.setSelection(first);
-
-        if (textView.getSelectionStart() > end)
-            textView.setSelection(last);
-
-        // Get editable
-        Editable editable = textView.getEditableText();
-
-        // Get current spans
-        ForegroundColorSpan spans[] =
-            editable.getSpans(start, end, ForegroundColorSpan.class);
-        // Remove spans
-        for (ForegroundColorSpan span: spans)
-            editable.removeSpan(span);
-
-        Matcher matcher;
-
-        switch (syntax)
-        {
-        case NO_SYNTAX:
-            // Get current spans
-            spans = editable.getSpans(0, editable.length(),
-                                      ForegroundColorSpan.class);
-            // Remove spans
-            for (ForegroundColorSpan span: spans)
-                editable.removeSpan(span);
-            break;
-
-        case CC_SYNTAX:
-            matcher = KEYWORDS.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(TYPES);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CLASS);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.BLUE);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(NUMBER);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.YELLOW);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(ANNOTATION);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CONSTANT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.LTGRAY);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(OPERATOR);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CC_COMMENT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case HTML_SYNTAX:
-            matcher = HTML_TAGS.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(HTML_ATTRS);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(QUOTED);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(HTML_COMMENT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case CSS_SYNTAX:
-            matcher = CSS_STYLES.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CSS_HEX);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CC_COMMENT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case ORG_SYNTAX:
-            matcher = ORG_HEADER.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.BLUE);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-
-            matcher.region(start, end).usePattern(ORG_EMPH);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(ORG_LINK);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(ORG_COMMENT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case MD_SYNTAX:
-            matcher = MD_HEADER.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.BLUE);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(MD_LINK);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(MD_EMPH);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(MD_CODE);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case SH_SYNTAX:
-            matcher = KEYWORDS.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(NUMBER);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.YELLOW);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CONSTANT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.LTGRAY);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(SH_VAR);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(OPERATOR);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(QUOTED);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(SH_COMMENT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-
-        case DEF_SYNTAX:
-            matcher = KEYWORDS.matcher(editable);
-            matcher.region(start, end);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.CYAN);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(TYPES);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.MAGENTA);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CLASS);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.BLUE);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(NUMBER);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.YELLOW);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(CONSTANT);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.LTGRAY);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            matcher.region(start, end).usePattern(QUOTED);
-            while (matcher.find())
-            {
-                ForegroundColorSpan span = new
-                    ForegroundColorSpan(Color.RED);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-            break;
-        }
-    }
-
-    // wordCountText
-    private void wordCountText()
-    {
-        int words = 0;
-        Matcher matcher = WORD_PATTERN.matcher(textView.getText());
-        while (matcher.find())
-        {
-            words++;
-        }
-
-        if (customView != null)
-        {
-            String string = String.format(Locale.getDefault(), "%d\n%d",
-                                          words, textView.length());
-            customView.setText(string);
-        }
-    }
-
-    // onActionModeStarted
     @Override
     public void onActionModeStarted(ActionMode mode)
     {
         super.onActionModeStarted(mode);
 
         // If there's a file
-        if (file != null)
+        if (sharedVariables.fileWrapper.file != null)
         {
             // Get the mime type
-            String type = FileUtils.getMimeType(file);
+            String mimeType = FileUtils.getMimeType(sharedVariables.fileWrapper.file);
             // If the type is not text/plain
-            if (!TEXT_PLAIN.equals(type))
+            if (!sharedConstants.TEXT_PLAIN.equals(mimeType))
             {
                 // Get the start and end of the selection
                 int start = textView.getSelectionStart();
@@ -2791,27 +1684,29 @@ public class Editor extends Activity
                     char c = text.charAt(end);
 
                     // Check for opening brackets
-                    if (BRACKET_CHARS.indexOf(c) == -1)
+                    if (sharedConstants.BRACKET_CHARS.indexOf(c) == -1)
                     {
                         switch (c)
                         {
                             // Check for close brackets and look for
                             // the open brackets
-                        case ')':
-                            c = '(';
-                            break;
+                            case ')':
+                                c = '(';
+                                break;
 
-                        case ']':
-                            c = '[';
-                            break;
+                            case ']':
+                                c = '[';
+                                break;
 
-                        case '}':
-                            c = '{';
-                            break;
+                            case '}':
+                                c = '{';
+                                break;
 
-                        case '>':
-                            c = '<';
-                            break;
+                            case '>':
+                                c = '<';
+                                break;
+                            default:
+                                break;
                         }
 
                         String string = text.toString();
@@ -2828,593 +1723,498 @@ public class Editor extends Activity
         }
     }
 
-    // checkMode
-    private void checkMode(CharSequence text)
-    {
+    private void checkMode(CharSequence text) {
         boolean change = false;
 
-        CharSequence first = text.subSequence
-            (0, Math.min(text.length(), FIRST_SIZE));
-        CharSequence last = text.subSequence
-            (Math.max(0, text.length() - LAST_SIZE), text.length());
-        for (CharSequence sequence: new CharSequence[]{first, last})
-        {
+        CharSequence first = text.subSequence(0, Math.min(text.length(), sharedConstants.FIRST_SIZE));
+        CharSequence last = text.subSequence(Math.max(0, text.length() - sharedConstants.LAST_SIZE), text.length());
+
+        for (CharSequence sequence : new CharSequence[]{first, last}) {
             Matcher matcher = MODE_PATTERN.matcher(sequence);
-            if (matcher.find())
-            {
+            if (matcher.find()) {
                 matcher.region(matcher.start(1), matcher.end(1));
                 matcher.usePattern(OPTION_PATTERN);
-                while (matcher.find())
-                {
+                while (matcher.find()) {
                     boolean no = "no".equals(matcher.group(2));
+                    String option = matcher.group(3);
+                    String value = matcher.group(4);
 
-                    if ("vw".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isReadOnly) == no)
-                        {
-                            editorPreferences.put(Preferences.isReadOnly, !no);
-                            change = true;
-                        }
-                    }
+                    switch (option) {
+                        case "vw":
+                            change |= updatePreference(Preferences.isReadOnly.name(), no);
+                            break;
 
-                    else if ("ww".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isContentWrapped) == no)
-                        {
-                            editorPreferences.put(Preferences.isContentWrapped, !no);
-                            change = true;
-                        }
-                    }
+                        case "ww":
+                            change |= updatePreference(Preferences.isContentWrapped.name(), no);
+                            break;
 
-                    else if ("sg".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled) == no)
-                        {
-                            editorPreferences.put(Preferences.isSuggestEnabled, !no);
-                            change = true;
-                        }
-                    }
+                        case "sg":
+                            change |= updatePreference(Preferences.isSuggestEnabled.name(), no);
+                            break;
 
-                    else if ("hs".equals(matcher.group(3)))
-                    {
-                        if ((boolean) editorPreferences.get(Preferences.isHighlightEnabled) == no)
-                        {
-                            editorPreferences.put(Preferences.isHighlightEnabled, !no);
-                            checkHighlight();
-                        }
-                    }
-
-                    else if ("th".equals(matcher.group(3)))
-                    {
-                        if (":l".equals(matcher.group(4)))
-                        {
-                            if (theme != LIGHT)
-                            {
-                                theme = LIGHT;
-                                change = true;
+                        case "hs":
+                            change |= updatePreference(Preferences.isHighlightEnabled.name(), no);
+                            if (change) {
+                                editorTextUtils.checkHighlight(editorPreferences, sharedVariables.fileWrapper.file, textView, scrollView);
                             }
-                        }
+                            break;
 
-                        else if (":d".equals(matcher.group(4)))
-                        {
-                            if (theme != DARK)
-                            {
-                                theme = DARK;
-                                change = true;
+                        case "th":
+                            change |= updateTheme(value);
+                            break;
+
+                        case "ts":
+                            change |= updateFontSize(value);
+                            break;
+
+                        case "tf":
+                            change |= updateTypeface(value);
+                            break;
+
+                        case "cs":
+                            if (":u".equals(value)) {
+                                sharedVariables.match = sharedConstants.UTF_8;
+                                getActionBar().setSubtitle(sharedVariables.match);
                             }
-                        }
-
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (theme != SYSTEM)
-                            {
-                                theme = SYSTEM;
-                                change = true;
-                            }
-                        }
-
-                        else if (":w".equals(matcher.group(4)))
-                        {
-                            if (theme != WHITE)
-                            {
-                                theme = WHITE;
-                                change = true;
-                            }
-                        }
-
-                        else if (":b".equals(matcher.group(4)))
-                        {
-                            if (theme != BLACK)
-                            {
-                                theme = BLACK;
-                                change = true;
-                            }
-                        }
-
-                        else if (":r".equals(matcher.group(4)))
-                        {
-                            if (theme != RETRO)
-                            {
-                                theme = RETRO;
-                                change = true;
-                            }
-                        }
-                    }
-
-                    else if ("ts".equals(matcher.group(3)))
-                    {
-                        if (":l".equals(matcher.group(4)))
-                        {
-                            if ((int) editorPreferences.get(Preferences.FontSize) != LARGE)
-                            {
-                                size = LARGE;
-                                textView.setTextSize(size);
-                            }
-                        }
-
-                        else if (":m".equals(matcher.group(4)))
-                        {
-                            if (size != MEDIUM)
-                            {
-                                size = MEDIUM;
-                                textView.setTextSize(size);
-                            }
-                        }
-
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (size != SMALL)
-                            {
-                                size = SMALL;
-                                textView.setTextSize(size);
-                            }
-                        }
-                    }
-
-                    else if ("tf".equals(matcher.group(3)))
-                    {
-                        if (":m".equals(matcher.group(4)))
-                        {
-                            if (type != MONO)
-                            {
-                                type = MONO;
-                                textView.setTypeface(Typeface.MONOSPACE);
-                            }
-                        }
-
-                        else if (":p".equals(matcher.group(4)))
-                        {
-                            if (type != NORMAL)
-                            {
-                                type = NORMAL;
-                                textView.setTypeface(Typeface.DEFAULT);
-                            }
-                        }
-
-                        else if (":s".equals(matcher.group(4)))
-                        {
-                            if (type != SERIF)
-                            {
-                                type = SERIF;
-                                textView.setTypeface(Typeface.SERIF);
-                            }
-                        }
-                    }
-
-                    else if ("cs".equals(matcher.group(3)))
-                    {
-                        if (":u".equals(matcher.group(4)))
-                        {
-                            match = UTF_8;
-                            getActionBar().setSubtitle(match);
-                        }
+                            break;
+                        default:
+                            break;
                     }
                 }
             }
         }
 
-        if (change)
+        if (change) {
             recreate(this);
+        }
     }
 
-    // loadText
-    private void loadText(CharSequence text)
-    {
-        if (textView != null)
-            textView.setText(text);
-
-        changed = false;
-
-        // Check for saved position
-        if (pathMap.containsKey(path))
-            textView.postDelayed(() ->
-                                 scrollView.smoothScrollTo
-                                 (0, pathMap.get(path)),
-                                 POSITION_DELAY);
-        else
-            textView.postDelayed(() ->
-                                 scrollView.smoothScrollTo(0, 0),
-                                 POSITION_DELAY);
-        // Check mode
-        checkMode(text);
-
-        // Check highlighting
-        checkHighlight();
-
-        // Set read only
-        if ((boolean) editorPreferences.get(Preferences.isReadOnly))
-        {
-            textView.setRawInputType(InputType.TYPE_NULL);
-            textView.setTextIsSelectable(true);
-
-            // Update boolean
-            edit = false;
-        }
-
-        else
-        {
-            // Set editable with or without suggestions
-            if ((boolean) editorPreferences.get(Preferences.isSuggestEnabled))
-                textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-            else
-                textView.setInputType(InputType.TYPE_CLASS_TEXT |
-                                      InputType.TYPE_TEXT_FLAG_MULTI_LINE |
-                                      InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-            // Update boolean
-            edit = true;
-        }
-
-        // Dismiss keyboard
-        textView.clearFocus();
-
-        // Update menu
-        invalidateOptionsMenu();
-    }
-
-    // QueryTextListener
-    private class QueryTextListener
-        implements SearchView.OnQueryTextListener
-    {
-        private BackgroundColorSpan span = new
-            BackgroundColorSpan(Color.YELLOW);
-        private Editable editable;
-        private Matcher matcher;
-        private Pattern pattern;
-        private int index;
-        private int height;
-
-        // onQueryTextChange
-        @Override
-        @SuppressWarnings("deprecation")
-        public boolean onQueryTextChange(String newText)
-        {
-            // Use regex search and spannable for highlighting
-            height = scrollView.getHeight();
-            editable = textView.getEditableText();
-
-            // Reset the index and clear highlighting
-            if (newText.length() == 0)
-            {
-                index = 0;
-                editable.removeSpan(span);
-                return false;
-            }
-
-            // Check pattern
-            try
-            {
-                pattern = Pattern.compile(newText, Pattern.MULTILINE);
-                matcher = pattern.matcher(editable);
-            }
-
-            catch (Exception e)
-            {
-                return false;
-            }
-
-            // Find text
-            if (matcher.find(index))
-            {
-                // Get index
-                index = matcher.start();
-
-                // Check layout
-                if (textView.getLayout() == null)
-                    return false;
-
-                // Get text position
-                int line = textView.getLayout().getLineForOffset(index);
-                int pos = textView.getLayout().getLineBaseline(line);
-
-                // Scroll to it
-                scrollView.smoothScrollTo(0, pos - height / 2);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            else
-                index = 0;
-
+    private boolean updatePreference(String preferenceKey, boolean no) {
+        boolean current = (boolean) editorPreferences.get(preferenceKey);
+        if (current == no) {
+            editorPreferences.put(Preferences.valueOf(preferenceKey), !no);
             return true;
         }
+        return false;
+    }
 
-        // onQueryTextSubmit
-        @Override
-        public boolean onQueryTextSubmit(String query)
-        {
-            // Check matcher
-            if (matcher == null)
+    private boolean updateTheme(String value) {
+        int newTheme;
+        switch (value) {
+            case ":l":
+                newTheme = LIGHT;
+                break;
+            case ":d":
+                newTheme = DARK;
+                break;
+            case ":s":
+                newTheme = SYSTEM;
+                break;
+            case ":w":
+                newTheme = WHITE;
+                break;
+            case ":b":
+                newTheme = BLACK;
+                break;
+            case ":r":
+                newTheme = RETRO;
+                break;
+            default:
                 return false;
-
-            // Find next text
-            if (matcher.find())
-            {
-                // Get index
-                index = matcher.start();
-
-                // Get text position
-                int line = textView.getLayout().getLineForOffset(index);
-                int pos = textView.getLayout().getLineBaseline(line);
-
-                // Scroll to it
-                scrollView.smoothScrollTo(0, pos - height / 2);
-
-                // Highlight it
-                editable.setSpan(span, matcher.start(), matcher.end(),
-                                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            }
-
-            else
-            {
-                matcher.reset();
-                index = 0;
-            }
-
+        }
+        if (theme != newTheme) {
+            theme = newTheme;
             return true;
         }
+        return false;
     }
 
-    // readFile
-    private CharSequence readFile(File file)
-    {
-        StringBuilder text = new StringBuilder();
-        // Open file
-        try (BufferedReader reader = new BufferedReader
-             (new InputStreamReader
-              (new BufferedInputStream(new FileInputStream(file)))))
-        {
-            String line;
-            while ((line = reader.readLine()) != null)
-            {
-                text.append(line);
-                text.append(System.getProperty("line.separator"));
-            }
-
-            return text;
+    private boolean updateFontSize(String value) {
+        int newSize;
+        switch (value) {
+            case ":l":
+                newSize = LARGE;
+                break;
+            case ":m":
+                newSize = MEDIUM;
+                break;
+            case ":s":
+                newSize = SMALL;
+                break;
+            default:
+                return false;
         }
-
-        catch (Exception e)
-        {
-            e.printStackTrace();
-        }
-
-        return text;
-    }
-
-    // ScaleListener
-    private class ScaleListener
-        extends ScaleGestureDetector.SimpleOnScaleGestureListener
-    {
-        // onScale
-        @Override
-        public boolean onScale(ScaleGestureDetector detector)
-        {
-            size *= Math.cbrt(detector.getScaleFactor());
-            size = Math.max(TINY, Math.min(size, HUGE));
-            textView.setTextSize(size);
-            invalidateOptionsMenu();
-
+        if (sharedVariables.size != newSize) {
+            sharedVariables.size = newSize;
+            textView.setTextSize(newSize);
             return true;
         }
+        return false;
     }
 
-    // FindTask
-    private static class FindTask
-            extends AsyncTask<String, Void, List<File>>
-    {
-        private WeakReference<Editor> editorWeakReference;
-        private Pattern pattern;
-        private String search;
-
-        // FindTask
-        public FindTask(Editor editor)
-        {
-            editorWeakReference = new WeakReference<>(editor);
+    private boolean updateTypeface(String value) {
+        Typeface newTypeface;
+        int newType;
+        switch (value) {
+            case ":m":
+                newTypeface = Typeface.MONOSPACE;
+                newType = MONO;
+                break;
+            case ":p":
+                newTypeface = Typeface.DEFAULT;
+                newType = NORMAL;
+                break;
+            case ":s":
+                newTypeface = Typeface.SERIF;
+                newType = SERIF;
+                break;
+            default:
+                return false;
         }
+        if (type != newType) {
+            type = newType;
+            textView.setTypeface(newTypeface);
+            return true;
+        }
+        return false;
+    }
 
-        // doInBackground
-        @Override
-        protected List<File> doInBackground(String... params)
-        {
-            // Create a list of matches
+    public void findTask(String search) {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        Handler mainHandler = new Handler(Looper.getMainLooper());
+
+        // Execute the task
+        executorService.execute(() -> {
+            Pattern pattern;
             List<File> matchList = new ArrayList<>();
-            final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return matchList;
 
-            search = params[0];
-            // Check pattern
-            try
-            {
+            // Compile the search pattern
+            try {
                 pattern = Pattern.compile(search, Pattern.MULTILINE);
-            }
-
-            catch (Exception e)
-            {
-                return matchList;
+            } catch (Exception e) {
+                return;
             }
 
             // Get entry list
             List<File> entries = new ArrayList<>();
-            for (String path : editor.pathMap.keySet())
-            {
+            for (String path : pathMap.keySet()) {
                 File entry = new File(path);
                 entries.add(entry);
             }
- 
+
             // Check the entries
-            for (File file : entries)
-            {
-                CharSequence content = editor.readFile(file);
+            for (File file : entries) {
+                CharSequence content = fileHandler.readFileFromFile(file);
                 Matcher matcher = pattern.matcher(content);
-                if (matcher.find())
+                if (matcher.find()) {
                     matchList.add(file);
-            }
-
-            return matchList;
-        }
-
-        // onPostExecute
-        @Override
-        protected void onPostExecute(List<File> matchList)
-        {
-            final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return;
-
-            // Build dialog
-            AlertDialog.Builder builder = new AlertDialog.Builder(editor);
-            builder.setTitle(R.string.findAll);
-
-            // If found populate dialog
-            if (!matchList.isEmpty())
-            {
-                List<String> choiceList = new ArrayList<>();
-                for (File file : matchList)
-                {
-                    // Remove path prefix
-                    String path = file.getPath();
-                    String name =
-                        path.replaceFirst(Environment
-                                          .getExternalStorageDirectory()
-                                          .getPath() + File.separator, "");
-
-                    choiceList.add(name);
                 }
-
-                String[] choices = choiceList.toArray(new String[0]);
-                builder.setItems(choices, (dialog, which) ->
-                {
-                    File file = matchList.get(which);
-                    Uri uri = Uri.fromFile(file);
-                    // Open the entry chosen
-                    editor.readFile(uri);
-
-                    // Put the search text back - why it
-                    // disappears I have no idea or why I have to
-                    // do it after a delay
-                    editor.searchView.postDelayed(() ->
-                      editor.searchView.setQuery(search, false), FIND_DELAY);
-                });
             }
 
-            builder.setNegativeButton(android.R.string.cancel, null);
-            builder.show();
-        }
-    }
+            // Pass the result to the UI thread
+            mainHandler.post(() -> {
 
-    // ReadTask
-    private static class ReadTask
-        extends AsyncTask<Uri, Void, CharSequence>
-    {
-        private WeakReference<Editor> editorWeakReference;
+                // Build dialog
+                AlertDialog.Builder builder = new AlertDialog.Builder(sharedVariables.appContext);
+                builder.setTitle(R.string.findAll);
 
-        public ReadTask(Editor editor)
-        {
-            editorWeakReference = new WeakReference<>(editor);
-        }
-
-        // doInBackground
-        @Override
-        protected CharSequence doInBackground(Uri... uris)
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return stringBuilder;
-
-            // Default UTF-8
-            if (editor.match == null)
-            {
-                editor.match = UTF_8;
-                editor.runOnUiThread(() ->
-                    editor.getActionBar().setSubtitle(editor.match));
-            }
-
-            try (BufferedInputStream in = new BufferedInputStream
-                 (editor.getContentResolver().openInputStream(uris[0])))
-            {
-                // Create reader
-                BufferedReader reader = null;
-                if (editor.match.equals(editor.getString(R.string.detect)))
-                {
-                    // Detect charset, using UTF-8 hint
-                    CharsetMatch match = new
-                        CharsetDetector().setDeclaredEncoding(UTF_8)
-                        .setText(in).detect();
-
-                    if (match != null)
-                    {
-                        editor.match = match.getName();
-                        editor.runOnUiThread(() ->
-                            editor.getActionBar().setSubtitle(editor.match));
-                        reader = new BufferedReader(match.getReader());
+                // If found, populate dialog
+                if (!matchList.isEmpty()) {
+                    List<String> choiceList = new ArrayList<>();
+                    for (File file : matchList) {
+                        String path = file.getPath();
+                        String name = path.replaceFirst(Environment
+                                .getExternalStorageDirectory()
+                                .getPath() + File.separator, "");
+                        choiceList.add(name);
                     }
 
-                    else
-                        reader = new BufferedReader
-                            (new InputStreamReader(in));
+                    String[] choices = choiceList.toArray(new String[0]);
+                    builder.setItems(choices, (dialog, which) -> {
+                        File file = matchList.get(which);
+                        Uri uri = Uri.fromFile(file);
+                        // Open the entry chosen
+                        loadFile(uri);
 
-                    if (BuildConfig.DEBUG && match != null)
-                        Log.d(TAG, "Charset " + editor.match);
+                        // Restore the search text after a delay
+                        searchView.postDelayed(() ->
+                                searchView.setQuery(search, false), sharedConstants.FIND_DELAY);
+                    });
                 }
 
-                else
-                     reader = new BufferedReader
-                         (new InputStreamReader(in, editor.match));
+                builder.setNegativeButton(android.R.string.cancel, null);
+                builder.show();
+            });
+        });
+    }
 
-                String line;
-                while ((line = reader.readLine()) != null)
-                {
-                    stringBuilder.append(line);
-                    stringBuilder.append(System.getProperty("line.separator"));
-                }
-            }
-
-            catch (Exception e)
-            {
-                editor.runOnUiThread(() ->
-                    Editor.alertDialog(editor, R.string.appName,
-                                       e.getMessage(),
-                                       R.string.ok));
-                e.printStackTrace();
-            }
-
-            return stringBuilder;
-        }
-
-        // onPostExecute
-        @Override
-        protected void onPostExecute(CharSequence result)
+    private boolean checkPermissions(int requestCode){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
         {
-            final Editor editor = editorWeakReference.get();
-            if (editor == null)
-                return;
-
-            editor.loadText(result);
+            requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.READ_EXTERNAL_STORAGE}, requestCode);
+            return false;
         }
+        return true; //already granted or older versions of android that dont need this
+    }
+
+    private void recreate(Context context)
+    {
+        if (Build.VERSION.SDK_INT != Build.VERSION_CODES.M)
+            recreate();
+    }
+
+
+    ///--------------------///
+    /// POPUPS AND DIALOGS ///
+    ///--------------------///
+
+    private AlertDialog.Builder buildNewAlertDialog(Context context,int title, String message){
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+
+        builder.setTitle(title);
+        try{
+            //Method was called from alertDialog with pos/neg button
+            int messageInt = Integer.parseInt(message);
+            builder.setMessage(messageInt);
+        }catch (Exception e){
+            //Method was called from alertDialog with neutral button
+            builder.setMessage(message);
+        }
+        return builder;
+    }
+
+    private void alertDialog(Context context, int title, int message,
+                                    int positiveButton, int negativeButton,
+                                    DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message+"");
+
+        // Add the buttons
+        builder.setPositiveButton(positiveButton, listener);
+        builder.setNegativeButton(negativeButton, listener);
+
+        // Create the AlertDialog
+        builder.show();
+    }
+
+    public void alertDialog(Context context, int title,String message, int neutralButton)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(context,title,message);
+
+        // Add the buttons
+        builder.setNeutralButton(neutralButton, null);
+
+        // Create the AlertDialog
+        builder.show();
+    }
+
+    private void popupUnsavedChanges(){
+        alertDialog(this, R.string.open, R.string.modified,R.string.save, R.string.discard, (dialog, id) ->
+        {
+            if (id == DialogInterface.BUTTON_POSITIVE) {
+                saveFile();
+            } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                sharedVariables.changed = false;
+            }
+        });
+    }
+
+    private void popupQuitUnsavedChanges(){
+        alertDialog(this, R.string.appName, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if (id == DialogInterface.BUTTON_POSITIVE) {
+                        saveFile();
+                        finish();
+                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                        sharedVariables.changed = false;
+                        finish();
+                    }
+                });
+    }
+
+    private void popupNewFileUnsavedChanges(){
+        alertDialog(this, R.string.newFile, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if(id == DialogInterface.BUTTON_POSITIVE){
+                        saveFile();
+                    }
+                });
+    }
+
+    private void popupOverwriteOptionSaveAs(){
+        alertDialog(this, R.string.appName,R.string.changedOverwrite,
+                R.string.overwrite, R.string.cancel, (d, b) ->
+                {
+                    if (b == DialogInterface.BUTTON_POSITIVE) {// Set interface title
+                        setTitle(sharedVariables.fileWrapper.uri.getLastPathSegment());
+                        sharedVariables.fileWrapper.path = sharedVariables.fileWrapper.file.getPath();
+                        saveFile();
+                    }
+                });
+    }
+
+    private void popupOverwrite() {
+        alertDialog(this, R.string.appName, R.string.changedOverwrite, R.string.overwrite, R.string.cancel, (dialog, id) -> {
+            if (id == DialogInterface.BUTTON_POSITIVE) {
+                try {
+                    fileHandler.saveFile(sharedVariables.fileWrapper.file,textView.getText());
+                } catch (IOException e) {
+                    popupSaveError(e);
+                }
+            }
+        });
+    }
+
+    private void popupOpenRecentUnsavedChanges(Uri uriToOpen){
+        alertDialog(this, R.string.openRecent, R.string.modified,
+                R.string.save, R.string.discard, (dialog, id) ->
+                {
+                    if (id == DialogInterface.BUTTON_POSITIVE) {
+                        saveFile();
+                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                                this, Editor.class));
+                    } else if (id == DialogInterface.BUTTON_NEGATIVE) {
+                        startActivity(new Intent(Intent.ACTION_EDIT, uriToOpen,
+                                this, Editor.class));
+                    }
+                });
+    }
+    private void popupExternalChanges(){
+        alertDialog(this, R.string.appName, R.string.changedReload,
+                R.string.reload, R.string.cancel, (dialog, id) ->
+                {
+                    if(id == DialogInterface.BUTTON_POSITIVE)
+                    {
+                        loadFile(sharedVariables.fileWrapper.uri);
+                    }
+                });
+    }
+
+    private void popupSaveError(Exception e) {
+        alertDialog(this, R.string.appName, e.getMessage(), R.string.ok);
+        e.printStackTrace();
+    }
+
+    private void popupSaveAs(String path,DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = buildNewAlertDialog(this,R.string.save,R.string.choose+"");
+
+        // Add the buttons
+        builder.setPositiveButton(R.string.save, listener);
+        builder.setNegativeButton(R.string.cancel, listener);
+        builder.setNeutralButton(R.string.storage, listener);
+
+        // Create edit text
+        LayoutInflater inflater = (LayoutInflater) builder.getContext()
+                .getSystemService(LAYOUT_INFLATER_SERVICE);
+        View view = inflater.inflate(R.layout.save_path, null);
+        builder.setView(view);
+
+        // Create the AlertDialog
+        AlertDialog dialog = builder.show();
+        TextView text = dialog.findViewById(R.id.pathText);
+        text.setText(path);
+    }
+
+    public static void popupOpenFile(Context context, List<String> dirList,
+                                     List<File> fileList,
+                                     DialogInterface.OnClickListener listener)
+    {
+        AlertDialog.Builder builder = new AlertDialog.Builder(context);
+        builder.setTitle(sharedConstants.FOLDER);
+
+        // Add the adapter
+        FileAdapter adapter = new FileAdapter(builder.getContext(), fileList);
+        builder.setAdapter(adapter, listener);
+
+        // Add storage button
+        builder.setNeutralButton(R.string.storage, listener);
+        // Add cancel button
+        builder.setNegativeButton(R.string.cancel, null);
+
+        // Create the Dialog
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Find the title view
+        ViewGroup title = dialog.findViewById
+                (context.getResources().getIdentifier("title_template",
+                        "id", "android"));
+        // Replace content with scroll view
+        title.removeAllViews();
+        HorizontalScrollView scroll = new
+                HorizontalScrollView(dialog.getContext());
+        title.addView(scroll);
+        // Add a row of folder buttons
+        LinearLayout layout = new LinearLayout(dialog.getContext());
+        scroll.addView(layout);
+        for (String dir: dirList)
+        {
+            Button button = new Button(dialog.getContext(), null,
+                    android.R.attr.buttonStyleSmall);
+            button.setId(dirList.indexOf(dir) + sharedConstants.FOLDER_OFFSET);
+            button.setText(dir);
+            button.setOnClickListener(v ->
+            {
+                listener.onClick(dialog, v.getId());
+                dialog.dismiss();
+            });
+            layout.addView(button);
+        }
+
+        // Scroll to the end
+        scroll.postDelayed(() ->
+                scroll.fullScroll(View.FOCUS_RIGHT), sharedConstants.POSITION_DELAY);
+    }
+
+    private void popupFileToLarge(long size) {
+        String large = getString(R.string.tooLarge);
+        alertDialog(this, R.string.appName,
+                String.format(large, FileUtils.getReadableFileSize(size)),
+                R.string.ok);
+    }
+
+    private void popupGoTo(OnSeekBarChangeListener listener)
+    {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(R.string.goTo);
+
+        // Add the buttons
+        builder.setNegativeButton(R.string.cancel, null);
+
+        // Create seek bar
+        LayoutInflater inflater = (LayoutInflater) builder.getContext()
+                .getSystemService(LAYOUT_INFLATER_SERVICE);
+        View view = inflater.inflate(R.layout.seek_bar, null);
+        builder.setView(view);
+
+        // Create the AlertDialog
+        AlertDialog dialog = builder.show();
+        SeekBar seekBar = dialog.findViewById(R.id.seekBar);
+        int height = textView.getHeight();
+        int progress = scrollView.getScrollY() * seekBar.getMax() / height;
+        seekBar.setProgress(progress);
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener()
+        {
+            @Override
+            public void onProgressChanged(SeekBar seekBar,
+                                          int progress,
+                                          boolean fromUser)
+            {
+                if (fromUser)
+                    listener.onProgressChanged(seekBar, progress);
+            }
+
+            @Override
+            public void onStartTrackingTouch (SeekBar seekBar) { /* Needs to be overridden because of android */ }
+
+            @Override
+            public void onStopTrackingTouch (SeekBar seekBar)
+            {
+                dialog.dismiss();
+            }
+        });
     }
 }

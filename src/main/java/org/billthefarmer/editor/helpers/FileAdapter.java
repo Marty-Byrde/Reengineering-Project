@@ -19,17 +19,17 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-package org.billthefarmer.editor;
+package org.billthefarmer.editor.helpers;
 
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.os.Environment;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.TextView;
+
+import org.billthefarmer.editor.R;
 
 import java.io.File;
 import java.util.List;
@@ -38,17 +38,12 @@ import java.util.List;
 public class FileAdapter extends BaseAdapter
 {
     private final static String TAG = "FileAdapter";
-
     private final static String ROOT = "/";
-
     private final static String IMAGE_SVG = "image/svg";
-
     private final static String IMAGE = "image";
     private final static String AUDIO = "audio";
     private final static String VIDEO = "video";
-
     private final static String APPLICATION = "application";
-
     private final static long TOO_LARGE = 524288;
 
     private LayoutInflater inflater;

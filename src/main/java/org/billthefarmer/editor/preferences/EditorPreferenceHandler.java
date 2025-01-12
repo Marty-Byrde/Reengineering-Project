@@ -1,6 +1,5 @@
 package org.billthefarmer.editor.preferences;
 
-import static org.billthefarmer.editor.Editor.MONOSPACE;
 import static org.billthefarmer.editor.preferences.EditorPreferenceParameters.*;
 import static org.billthefarmer.editor.preferences.Preferences.*;
 
@@ -8,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.res.Resources;
 
 import org.billthefarmer.editor.R;
+import org.billthefarmer.editor.values.SharedConstants;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,14 +15,16 @@ import java.util.List;
 import java.util.Set;
 
 public class EditorPreferenceHandler {
-    private EditorPreferenceHandler (){}
+    private static SharedConstants sharedConstants = SharedConstants.getInstance();
+    private EditorPreferenceHandler (){
+    }
 
     public static HashMap<Preferences, Object> fetchPreferences(Resources resources, SharedPreferences sharedPreferences){
         HashMap<Preferences, Object> preferences = new HashMap<>();
 
         String[] typefaces = resources.getStringArray(R.array.typefaces);
         List<String> typeList = Arrays.asList(typefaces);
-        int monospace = typeList.indexOf(MONOSPACE);
+        int monospace = typeList.indexOf(sharedConstants.MONOSPACE);
 
         Boolean isAutoSaveEnabled = sharedPreferences.getBoolean(PREF_SAVE, false);
         Boolean isFileReadOnly = sharedPreferences.getBoolean(PREF_VIEW, true);

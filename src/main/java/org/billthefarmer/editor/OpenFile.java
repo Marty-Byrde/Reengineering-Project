@@ -25,8 +25,6 @@ package org.billthefarmer.editor;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -37,32 +35,31 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.preference.PreferenceManager;
-import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.EditText;
-import android.widget.HorizontalScrollView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import org.billthefarmer.editor.fileHandler.FileHandler;
+import org.billthefarmer.editor.fileHandler.IFileHandler;
+import org.billthefarmer.editor.helpers.FileUtils;
+import org.billthefarmer.editor.values.SharedConstants;
 import org.billthefarmer.editor.preferences.EditorPreferenceParameters;
 
 import java.io.File;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class OpenFile extends Activity
 {
-    public final static String TAG = "OpenFile";
-
     private TextView nameView;
     private TextView pathView;
 
     private String path;
     private File file;
     private Uri uri;
+
+    private static final SharedConstants sharedConstants= SharedConstants.getInstance();;
+    private static final IFileHandler fileHandler = FileHandler.getInstance();
 
     // onCreate
     @Override
@@ -145,7 +142,7 @@ public class OpenFile extends Activity
 
             else
                 getFile(new File(Environment.getExternalStorageDirectory(),
-                                 Editor.DOCUMENTS));
+                        sharedConstants.DOCUMENTS));
         });
 
         Button create = findViewById(R.id.create);
@@ -197,7 +194,7 @@ public class OpenFile extends Activity
                 requestPermissions(new String[]
                     {Manifest.permission.WRITE_EXTERNAL_STORAGE,
                      Manifest.permission.READ_EXTERNAL_STORAGE},
-                                   Editor.REQUEST_OPEN);
+                                   sharedConstants.REQUEST_OPEN);
                 return;
             }
         }
@@ -207,7 +204,7 @@ public class OpenFile extends Activity
 
         else
             getFile(new File(Environment.getExternalStorageDirectory(),
-                             Editor.DOCUMENTS));
+                    sharedConstants.DOCUMENTS));
     }
 
     // onRequestPermissionsResult
@@ -218,14 +215,14 @@ public class OpenFile extends Activity
     {
         switch (requestCode)
         {
-        case Editor.REQUEST_OPEN:
+        case 3:
             for (int i = 0; i < grantResults.length; i++)
                 if (permissions[i].equals(Manifest.permission
                                           .READ_EXTERNAL_STORAGE) &&
                     grantResults[i] == PackageManager.PERMISSION_GRANTED)
                     // Granted, get file
                     getFile(new File(Environment.getExternalStorageDirectory(),
-                                     Editor.DOCUMENTS));
+                            sharedConstants.DOCUMENTS));
             break;
         }
     }
@@ -240,7 +237,7 @@ public class OpenFile extends Activity
 
         switch (requestCode)
         {
-        case Editor.OPEN_DOCUMENT:
+        case 1:
             uri = data.getData();
             path = uri.getPath();
             pathView.setText(path);
@@ -254,7 +251,7 @@ public class OpenFile extends Activity
     private void getFile(File dir)
     {
         // Get list of files
-        List<File> fileList = Editor.getList(dir);
+        List<File> fileList = fileHandler.getList(dir);
         if (fileList == null)
             return;
 
@@ -264,22 +261,22 @@ public class OpenFile extends Activity
         dirList.addAll(Uri.fromFile(dir).getPathSegments());
 
         // Pop up dialog
-        Editor.openDialog(this, dirList, fileList, (dialog, which) ->
+        Editor.popupOpenFile(this, dirList, fileList, (dialog, which) ->
         {
             if (DialogInterface.BUTTON_NEUTRAL == which)
             {
                 // Use storage
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                intent.setType(Editor.TEXT_WILD);
+                intent.setType(sharedConstants.TEXT_WILD);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                startActivityForResult(intent, Editor.OPEN_DOCUMENT);
+                startActivityForResult(intent, sharedConstants.OPEN_DOCUMENT);
                 return;
             }
 
-            if (Editor.FOLDER_OFFSET <= which)
+            if (sharedConstants.FOLDER_OFFSET <= which)
             {
                 File file = new File(File.separator);
-                for (int i = 0; i <= which - Editor.FOLDER_OFFSET; i++)
+                for (int i = 0; i <= which - sharedConstants.FOLDER_OFFSET; i++)
                     file = new File(file, dirList.get(i));
                 if (file.isDirectory())
                     getFile(file);
