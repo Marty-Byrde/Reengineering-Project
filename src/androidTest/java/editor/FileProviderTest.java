@@ -12,7 +12,6 @@ import java.io.File;
 import java.io.IOException;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
 
 public class FileProviderTest {
 
@@ -32,13 +31,14 @@ public class FileProviderTest {
 
     @Test
     public void testFileCreation() throws IOException {
-        File mockFile = mock(File.class);
-        when(mockFile.createNewFile()).thenReturn(true);
+        File tempFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "testfile.txt");
 
-        boolean created = mockFile.createNewFile();
-        assertTrue("File should be created successfully", created);
+        if (!tempFile.exists()) {
+            assertTrue("Temporary file should be created", tempFile.createNewFile());
+        }
 
-        verify(mockFile, times(1)).createNewFile();
+        assertTrue("Temporary file should exist", tempFile.exists());
+        assertTrue("Temporary file should be deleted", tempFile.delete());
     }
 
     @Test
@@ -49,17 +49,31 @@ public class FileProviderTest {
             if (!tempFile.exists()) {
                 assertTrue("Temporary file should be created", tempFile.createNewFile());
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             fail("File creation failed: " + e.getMessage());
         }
 
-        Uri fileUri = FileProvider.getUriForFile(context, "com.example.fileprovider", tempFile);
+        Uri fileUri = FileProvider.getUriForFile(context, "org.billthefarmer.editor.fileprovider", tempFile);
 
         assertNotNull("URI should not be null", fileUri);
         assertTrue("URI should start with content://", fileUri.toString().startsWith("content://"));
 
         if (tempFile.exists()) {
             assertTrue("Temporary file should be deleted", tempFile.delete());
+        }
+    }
+
+
+    @Test
+    public void testInvalidFileUri() {
+        File invalidFile = new File(context.getFilesDir(), "invalidfile.txt");
+
+        try {
+            // Versuchen, eine URI für eine ungültige Datei zu generieren
+            FileProvider.getUriForFile(context, "org.billthefarmer.editor.fileprovider", invalidFile);
+            fail("Expected IllegalArgumentException for non-configured file");
+        } catch (IllegalArgumentException e) {
+            assertNotNull("Exception message should not be null", e.getMessage());
         }
     }
 }
