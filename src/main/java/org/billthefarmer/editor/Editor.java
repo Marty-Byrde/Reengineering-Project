@@ -1050,7 +1050,7 @@ public class Editor extends Activity
     }
 
     // newFile
-    private void newFile()
+    public void newFile()
     {
         // Check if file changed
         if (changed)
@@ -1079,7 +1079,7 @@ public class Editor extends Activity
     }
 
     // newFile
-    private void newFile(String text)
+    public void newFile(String text)
     {
         textView.setText("");
         changed = false;
@@ -1106,7 +1106,7 @@ public class Editor extends Activity
     }
 
     // getDefaultFile
-    private static File getDefaultFile()
+    public static File getDefaultFile()
     {
         File documents = new
             File(Environment.getExternalStorageDirectory(), DOCUMENTS);
@@ -1114,7 +1114,7 @@ public class Editor extends Activity
     }
 
     // defaultFile
-    private void defaultFile()
+    public void defaultFile()
     {
         file = getDefaultFile();
         uri = Uri.fromFile(file);
@@ -1753,7 +1753,7 @@ public class Editor extends Activity
     }
 
     // openFile
-    private void openFile()
+    public void openFile()
     {
         // Check if file changed
         if (changed)
@@ -1974,7 +1974,7 @@ public class Editor extends Activity
     }
 
     // readFile
-    private void readFile(Uri uri)
+    public void readFile(Uri uri)
     {
         if (uri == null)
             return;
@@ -2133,14 +2133,14 @@ public class Editor extends Activity
     }
 
     // saveFile
-    private void saveFile(File file)
+    public void saveFile(File file)
     {
         CharSequence text = textView.getText();
         write(text, file);
     }
 
     // saveFile
-    private void saveFile(Uri uri)
+    public void saveFile(Uri uri)
     {
         CharSequence text = textView.getText();
         try (OutputStream outputStream =
@@ -2187,7 +2187,7 @@ public class Editor extends Activity
     }
 
     // write
-    private void write(CharSequence text, OutputStream os)
+    public void write(CharSequence text, OutputStream os)
     {
         String charset = UTF_8;
         if (match != null && !match.equals(getString(R.string.detect)))

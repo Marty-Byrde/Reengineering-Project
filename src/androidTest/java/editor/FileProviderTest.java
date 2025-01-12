@@ -43,7 +43,6 @@ public class FileProviderTest {
 
     @Test
     public void testFileProviderUriPermissions() {
-        // Arrange: Create a temporary file
         File tempFile = new File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "testfile.txt");
 
         try {
@@ -54,14 +53,11 @@ public class FileProviderTest {
             fail("File creation failed: " + e.getMessage());
         }
 
-        // Act: Get URI for the file through FileProvider
         Uri fileUri = FileProvider.getUriForFile(context, "com.example.fileprovider", tempFile);
 
-        // Assert: Verify the URI is not null and well-formed
         assertNotNull("URI should not be null", fileUri);
         assertTrue("URI should start with content://", fileUri.toString().startsWith("content://"));
 
-        // Clean up
         if (tempFile.exists()) {
             assertTrue("Temporary file should be deleted", tempFile.delete());
         }
